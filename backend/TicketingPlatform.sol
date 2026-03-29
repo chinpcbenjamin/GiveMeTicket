@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./ITicketingPlatform.sol";
+
+// ERC-721 event ticketing contract. Each ticket is a unique NFT. Implements ITicketingPlatform
+contract TicketingPlatform is ERC721, ReentrancyGuard, Ownable, ITicketingPlatform {
+
+    enum TicketStatus { Valid, Used, Cancelled }
+    enum EventStatus  { Active, Ended, Cancelled }
+
+    struct Event {
+        string      name;
+        uint256     date;           
+        uint256     totalSupply;
+        uint256     ticketsSold;
+        uint256     facePrice;      
+        uint256     resaleCapBps; 
+        EventStatus status;
+    }
+
+    struct Ticket {
+        uint256      eventId;
+        uint256      facePrice;   
+        TicketStatus status;
+    }
+
+    mapping(uint256 => Event)  public events;
+    mapping(uint256 => Ticket) public tickets;
+    uint256 public nextEventId;
+    uint256 public nextTokenId;
+
+    event EventCreated(uint256 indexed eventId, string name, uint256 facePrice);
+    event TicketMinted(uint256 indexed tokenId, uint256 indexed eventId, address buyer);
+    event EventCancelled(uint256 indexed eventId);
+    event EventEnded(uint256 indexed eventId);
+    event TicketUsed(uint256 indexed tokenId);
+
+    constructor() ERC721("GiveMeTicket", "GMT") Ownable(msg.sender) {}
+
+    // =========================================================================
+    // Organizer Functions
+    // =========================================================================
+
+    // Creates a new event. Only owner.
+    // Returns eventId - Auto-incremented event ID.
+    function createEvent(
+        string memory name,
+        uint256 date,
+        uint256 totalSupply,
+        uint256 facePrice,
+        uint256 resaleCapBps
+    ) external onlyOwner returns (uint256 eventId) {
+        require(date > block.timestamp, "Event date must be in the future");
+        require(totalSupply > 0,        "Total supply must be > 0");
+        require(facePrice > 0,          "Face price must be > 0");
+        require(resaleCapBps >= 10_000, "Resale cap must be >= 100% (10000 bps)");
+
+        eventId = nextEventId++;
+        events[eventId] = Event({
+            name:         name,
+            date:         date,
+            totalSupply:  totalSupply,
+            ticketsSold:  0,
+            facePrice:    facePrice,
+            resaleCapBps: resaleCapBps,
+            status:       EventStatus.Active
+        });
+
+        emit EventCreated(eventId, name, facePrice);
+    }
+
+    // Cancels an active event; freezes all ticket transfers. Only owner.
+    function cancelEvent(uint256 eventId) external onlyOwner {
+        // Checks
+        require(events[eventId].status == EventStatus.Active, "Event is not active");
+        // Effects
+        events[eventId].status = EventStatus.Cancelled;
+        emit EventCancelled(eventId);
+    }
+
+    // Marks an active event as Ended; freezes all ticket transfers. Only owner.
+    function markEventEnded(uint256 eventId) external onlyOwner {
+        require(events[eventId].status == EventStatus.Active, "Event is not active");
+        events[eventId].status = EventStatus.Ended;
+        emit EventEnded(eventId);
+    }
+
+    // Marks a ticket as Used at the venue gate. Only owner.
+    function markTicketUsed(uint256 tokenId) external onlyOwner {
+        require(_ownerOf(tokenId) != address(0),               "Ticket does not exist");
+        require(tickets[tokenId].status == TicketStatus.Valid,  "Ticket is not Valid");
+        tickets[tokenId].status = TicketStatus.Used;
+        emit TicketUsed(tokenId);
+    }
+
+    // Withdraws the full contract ETH balance to the owner. Only owner.
+    function withdraw() external onlyOwner nonReentrant {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No funds to withdraw");
+        (bool success, ) = owner().call{value: balance}("");
+        require(success, "ETH transfer failed");
+    }
+
+    // =========================================================================
+    // Buyer Functions
+    // =========================================================================
+
+    // Buys one ticket for an event and mints it as an ERC-721 NFT. Public payable. CEI Implementation
+    // @return tokenId Auto-incremented token ID of the minted ticket.
+    function buyTicket(uint256 eventId)
+        external
+        payable
+        nonReentrant
+        returns (uint256 tokenId)
+    {
+        Event storage evt = events[eventId];
+
+        require(evt.status == EventStatus.Active, "Event is not active");
+        require(block.timestamp < evt.date,        "Event has already started");
+        require(evt.ticketsSold < evt.totalSupply, "Event is sold out");
+        require(msg.value == evt.facePrice,        "Incorrect payment amount");
+
+        tokenId = nextTokenId++;
+        evt.ticketsSold++;
+        tickets[tokenId] = Ticket({
+            eventId:   eventId,
+            facePrice: evt.facePrice,
+            status:    TicketStatus.Valid
+        });
+
+        _safeMint(msg.sender, tokenId);
+        emit TicketMinted(tokenId, eventId, msg.sender);
+    }
+
+    // Returns the resale price cap in wei (facePrice * resaleCapBps / 10000).
+    function getResaleCap(uint256 tokenId) external view override returns (uint256) {
+        Ticket storage ticket = tickets[tokenId];
+        return ticket.facePrice * events[ticket.eventId].resaleCapBps / 10_000;
+    }
+
+    // Returns the face price paid at mint, in wei.
+    function getTicketPrice(uint256 tokenId) external view override returns (uint256) {
+        return tickets[tokenId].facePrice;
+    }
+
+    // Returns true if ticket is Valid and its event is Active.
+    function isTicketValid(uint256 tokenId) external view override returns (bool) {
+        Ticket storage ticket = tickets[tokenId];
+        return ticket.status == TicketStatus.Valid
+            && events[ticket.eventId].status == EventStatus.Active;
+    }
+
+    // =========================================================================
+    // ERC-721 Transfer Override
+    // =========================================================================
+
+    // Blocks transfers (not mints) when the event is not Active, the event date has passed, or the ticket is not Valid.
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal override returns (address) {
+        address from = _ownerOf(tokenId);
+
+        if (from != address(0)) {
+            Ticket storage ticket = tickets[tokenId];
+            Event  storage evt    = events[ticket.eventId];
+
+            require(evt.status == EventStatus.Active,  "Transfer blocked: event is not Active");
+            require(block.timestamp < evt.date,         "Transfer blocked: event date has passed");
+            require(ticket.status == TicketStatus.Valid, "Transfer blocked: ticket is not Valid");
+        }
+
+        return super._update(to, tokenId, auth);
+    }
+}
