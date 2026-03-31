@@ -3,10 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './index.css';
 
-import Home from './Home.jsx';
+import Home from './pages/Home.jsx';
 import Buy from './pages/Buy.jsx';
 import Resell from './pages/Resell.jsx';
 import MyTickets from './pages/MyTickets.jsx';
+import Marketplace from './pages/Marketplace.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/buy" element={<Buy />} />
         <Route path="/resell" element={<Resell />} />
         <Route path="/my-tickets" element={<MyTickets />} />
+        <Route path="/marketplace" element={<Marketplace />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

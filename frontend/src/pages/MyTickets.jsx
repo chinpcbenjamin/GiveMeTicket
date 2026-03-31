@@ -1,39 +1,42 @@
+// need to modify this to take the current userid's tickets from smart contract itself
+// instead of the const myTickets
+// do not need multiple event tickets for now. just one event ticket
+
+// can just use userid = 1 since we do not connect to any wallet yet
+
 export default function MyTickets() {
   const myTickets = [
     {
-      id: "TICKET-001",
+      id: "1",
       event: "Blockchain Music Fest 2026",
-      date: "20 April 2026",
-      time: "7:00 PM",
-      venue: "Marina Bay Sands Expo",
-      price: "5 ETH",
-      status: "Active",
+      price: 5,
+      status: 1
     },
     {
-      id: "TICKET-002",
-      event: "Web3 Tech Conference 2026",
-      date: "12 May 2026",
-      time: "2:00 PM",
-      venue: "Suntec Convention Centre",
-      price: "3 ETH",
-      status: "Listed for Resale",
+      id: "243",
+      event: "Blockchain Music Fest 2026",
+      price: 5,
+      status: 2
     },
     {
-      id: "TICKET-003",
-      event: "Crypto Night Live",
-      date: "28 June 2026",
-      time: "8:30 PM",
-      venue: "Singapore Indoor Stadium",
-      price: "4 ETH",
-      status: "Used",
+      id: "3449",
+      event: "Blockchain Music Fest 2026",
+      price: 5,
+      status: 3,
     },
   ];
+
+  const TicketStatus = {
+    1: "Active",
+    2: "Listed for Resale",
+    3: "Used",
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
       <div className="w-full max-w-6xl bg-white rounded-3xl shadow-lg overflow-hidden">
-        <div className="bg-black text-white p-8">
-          <h1 className="text-4xl font-extrabold mb-2">My Tickets</h1>
+        <div className="bg-black p-8">
+          <h1 className="text-4xl text-white font-extrabold mb-2">My Tickets</h1>
           <p className="text-gray-300">
             View all tickets currently owned by your wallet.
           </p>
@@ -52,32 +55,23 @@ export default function MyTickets() {
                   </h2>
                   <span
                     className={`text-sm font-semibold px-3 py-1 rounded-full ${
-                      ticket.status === "Active"
+                      ticket.status === 1
                         ? "bg-green-100 text-green-700"
-                        : ticket.status === "Listed for Resale"
+                        : ticket.status === 2
                         ? "bg-yellow-100 text-yellow-700"
                         : "bg-gray-200 text-gray-700"
                     }`}
                   >
-                    {ticket.status}
+                    {TicketStatus[ticket.status]}
                   </span>
                 </div>
 
                 <div className="space-y-2 text-gray-700">
                   <p>
-                    <span className="font-semibold">Ticket ID:</span> {ticket.id}
+                    <span className="font-semibold">Ticket ID:</span> #{ticket.id}
                   </p>
                   <p>
-                    <span className="font-semibold">Date:</span> {ticket.date}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Time:</span> {ticket.time}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Venue:</span> {ticket.venue}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Price:</span> {ticket.price}
+                    <span className="font-semibold">Price:</span> {ticket.price} ETH
                   </p>
                 </div>
 
@@ -92,9 +86,20 @@ export default function MyTickets() {
                   <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition">
                     View Details
                   </button>
-                  <button className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition">
-                    Resell
-                  </button>
+                  {
+                    ticket.status == 1 && (
+                      <button className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition">
+                        Resell
+                      </button>
+                    )
+                  }
+                  {
+                    ticket.status == 2 && (
+                      <button className="flex-1 bg-red-500 hover:bg-red-300 text-white font-bold py-3 rounded-xl transition">
+                        Cancel Resale
+                      </button>
+                    )
+                  }
                 </div>
               </div>
             ))}

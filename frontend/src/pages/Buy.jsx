@@ -1,3 +1,6 @@
+// need to handle the case where the user does not have enough ETH to buy the ticket
+// need to handle the case where the not enough tickets left to buy
+
 import { useState } from "react";
 
 export default function Buy() {
@@ -5,6 +8,8 @@ export default function Buy() {
 
   const ticketPrice = 5;
   const totalPrice = quantity * ticketPrice;
+
+  let ticketsLeft = 128;
 
   const increaseQuantity = () => {
     setQuantity((prev) => prev + 1);
@@ -23,8 +28,8 @@ export default function Buy() {
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
       <div className="w-full max-w-4xl bg-white rounded-3xl shadow-lg overflow-hidden">
-        <div className="bg-black text-white p-8">
-          <h1 className="text-4xl font-extrabold mb-2">Buy Ticket</h1>
+        <div className="bg-black p-8">
+          <h1 className="text-4xl text-white font-extrabold mb-2">Buy Ticket</h1>
           <p className="text-gray-300">
             Secure your ticket for the event through GiveMeTicket.
           </p>
@@ -47,25 +52,16 @@ export default function Buy() {
 
             <div className="bg-gray-100 rounded-2xl p-5 space-y-3">
               <p className="text-lg">
-                <span className="font-semibold">Date:</span> 20 April 2026
-              </p>
-              <p className="text-lg">
-                <span className="font-semibold">Time:</span> 7:00 PM
-              </p>
-              <p className="text-lg">
-                <span className="font-semibold">Venue:</span> Marina Bay Sands Expo
-              </p>
-              <p className="text-lg">
                 <span className="font-semibold">Price per Ticket:</span> {ticketPrice} ETH
               </p>
               <p className="text-lg">
-                <span className="font-semibold">Tickets Left:</span> 128
+                <span className="font-semibold">Tickets Left:</span> {ticketsLeft}
               </p>
             </div>
 
             <div className="bg-gray-100 rounded-2xl p-5">
               <p className="text-lg font-semibold mb-3">Select Quantity</p>
-              <div className="flex items-center gap-4">
+              <div className="pl-20 flex items-center gap-4">
                 <button
                   onClick={decreaseQuantity}
                   className="w-12 h-12 rounded-xl bg-gray-300 hover:bg-gray-400 text-2xl font-bold"
