@@ -3,32 +3,32 @@
 // - else, show error alert
 
 export default function Marketplace() {
-    const mock_listing = [
-        {
-            ticket_id: 1,
-            event: "Blockchain Music Fest 2026",
-            seller_id: 2,
-            list_price: 6
-        },
-        {
-            ticket_id: 243,
-            event: "Blockchain Music Fest 2026",
-            seller_id: 30,
-            list_price: 7
-        },
-        {
-            ticket_id: 3449,
-            event: "Blockchain Music Fest 2026",
-            seller_id: 63,
-            list_price: 7
-        },
-        {
-            ticket_id: 5036,
-            event: "Blockchain Music Fest 2026",
-            seller_id: 42,
-            list_price: 6.5
-        }
-    ]
+  const mock_listing = [
+      {
+          ticket_id: 1,
+          event: "Blockchain Music Fest 2026",
+          seller_id: 2,
+          list_price: 6
+      },
+      {
+          ticket_id: 243,
+          event: "Blockchain Music Fest 2026",
+          seller_id: 30,
+          list_price: 7
+      },
+      {
+          ticket_id: 3449,
+          event: "Blockchain Music Fest 2026",
+          seller_id: 63,
+          list_price: 7
+      },
+      {
+          ticket_id: 5036,
+          event: "Blockchain Music Fest 2026",
+          seller_id: 42,
+          list_price: 6.5
+      }
+  ]
 
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
