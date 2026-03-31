@@ -1,9 +1,20 @@
 // need to handle the case where the user does not have enough ETH to buy the ticket
 // need to handle the case where the not enough tickets left to buy
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getContract } from "../contract/useContract";
 
 export default function Buy() {
+  async function viewEvent(eventId) {
+    try {
+      const contract = await getContract();
+      const evt = await contract.events(eventId);
+      console.log("Event data:", evt);
+    } catch (err) {
+      console.error("Failed to fetch event:", err);
+    }
+  }
+
   const [quantity, setQuantity] = useState(1);
 
   const ticketPrice = 5;
