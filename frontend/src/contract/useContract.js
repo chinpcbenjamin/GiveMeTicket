@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import TicketingPlatformArtifact from "../../../artifacts/contracts/TicketingPlatform.sol/TicketingPlatform.json";
 
-const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const CONTRACT_ADDRESS = "xxyourcontractaddressxx"; // we need to edit this
 const CONTRACT_ABI = TicketingPlatformArtifact.abi;
 const HARDHAT_CHAIN_ID = "0x7a69"; // 31337 in hex
 
