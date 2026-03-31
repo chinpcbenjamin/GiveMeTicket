@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 // import { ethers } from "ethers";
 // import { getContract } from "../contract/useContract";
 
 
 export default function Home() {
     const [ticketPrice, setTicketPrice] = useState(5); //for now i put 5 just as a test. need to integrate with backend later on
-
+    const navigate = useNavigate();
     // useEffect(() => {
     //     async function fetchPrice() {
     //         const contract = await getContract();
@@ -26,11 +27,24 @@ export default function Home() {
                     <p className="text-xl text-white font-bold">Current Ticket Price: {ticketPrice} ETH</p>
                 </div>
 
-                <div className="bg-blue-400 hover:bg-blue-600 transition cursor-pointer rounded-2xl p-10 w-56 flex items-center justify-center">
+                <div
+                    onClick={() => navigate("/my-tickets")}
+                    className="bg-green-400 hover:bg-gray-800 transition cursor-pointer rounded-2xl p-10 w-64 text-center"
+                >
+                    <p className="text-xl text-white font-bold">My Tickets</p>
+                </div>
+
+                <div 
+                    className="bg-blue-400 hover:bg-blue-600 transition cursor-pointer rounded-2xl p-10 w-56 flex items-center justify-center"
+                    onClick={() => navigate("/buy")}
+                >
                     <p className="text-xl text-white font-bold">Buy Ticket</p>
                 </div>
 
-                <div className="bg-blue-400 hover:bg-blue-600 transition cursor-pointer rounded-2xl p-10 w-56 flex items-center justify-center">
+                <div 
+                    className="bg-blue-400 hover:bg-blue-600 transition cursor-pointer rounded-2xl p-10 w-56 flex items-center justify-center"
+                    onClick={() => navigate("/resell")}
+                >
                     <p className="text-xl text-white font-bold">Resell Ticket</p>
                 </div>
             </div>
