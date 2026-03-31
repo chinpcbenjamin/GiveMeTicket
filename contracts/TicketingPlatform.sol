@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./ITicketingPlatform.sol";
 
 // ERC-721 event ticketing contract. Each ticket is a unique NFT. Implements ITicketingPlatform
-contract TicketingPlatform is ERC721, ReentrancyGuard, Ownable, ITicketingPlatform {
+contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicketingPlatform {
 
     enum TicketStatus { Valid, Used, Cancelled }
     enum EventStatus  { Active, Ended, Cancelled }
@@ -163,7 +163,7 @@ contract TicketingPlatform is ERC721, ReentrancyGuard, Ownable, ITicketingPlatfo
         address to,
         uint256 tokenId,
         address auth
-    ) internal override returns (address) {
+    ) internal override(ERC721, ERC721Enumerable) returns (address) {
         address from = _ownerOf(tokenId);
 
         if (from != address(0)) {
@@ -176,5 +176,11 @@ contract TicketingPlatform is ERC721, ReentrancyGuard, Ownable, ITicketingPlatfo
         }
 
         return super._update(to, tokenId, auth);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public view override(ERC721, ERC721Enumerable) returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }
