@@ -38,14 +38,14 @@ export default function Home() {
                     className="bg-blue-400 hover:bg-blue-600 transition cursor-pointer rounded-2xl p-10 w-56 flex items-center justify-center"
                     onClick={() => navigate("/buy")}
                 >
-                    <p className="text-xl text-white font-bold">Buy Ticket</p>
+                    <p className="text-xl text-white font-bold">Buy Official Tickets</p>
                 </div>
 
                 <div 
                     className="bg-blue-400 hover:bg-blue-600 transition cursor-pointer rounded-2xl p-10 w-56 flex items-center justify-center"
-                    onClick={() => navigate("/resell")}
+                    onClick={() => navigate("/marketplace")}
                 >
-                    <p className="text-xl text-white font-bold">Resell Ticket</p>
+                    <p className="text-xl text-white font-bold">Buy Resale Tickets</p>
                 </div>
             </div>
         </div>
