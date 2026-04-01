@@ -1,36 +1,69 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { getContract, connectWallet } from "../contract/useContract";
+import { ethers } from "ethers";
 
 export default function Resell() {
-  const [selectedTicket, setSelectedTicket] = useState("TICKET-001");
-  const [resellPrice, setResellPrice] = useState("6");
+  const navigate = useNavigate();
+  const { ticketId } = useParams();
+  const [ticket, setTicket] = useState(null);
+  const [resellPrice, setResellPrice] = useState(0);
 
-  const ownedTickets = [
-    {
-      id: "TICKET-001",
-      event: "Blockchain Music Fest 2026",
-      date: "20 April 2026",
-      venue: "Marina Bay Sands Expo",
-      originalPrice: "5 ETH",
-      status: "Owned",
-    },
-    {
-      id: "TICKET-002",
-      event: "Web3 Tech Conference 2026",
-      date: "12 May 2026",
-      venue: "Suntec Convention Centre",
-      originalPrice: "3 ETH",
-      status: "Owned",
-    },
-  ];
+  async function checkOwnership() {
+    const contract = await getContract();
+    const currentUser = await connectWallet();
+    const ticket_owner = await contract.ownerOf(ticketId);
+    if (ticket_owner.toLowerCase() !== currentUser.toLowerCase()) {
+      alert("You do not own this ticket!");
+      navigate("/my-tickets");
+      return;
+    }
+  }
 
-  const currentTicket =
-    ownedTickets.find((ticket) => ticket.id === selectedTicket) || ownedTickets[0];
+  async function getTicket() {
+    const contract = await getContract();
+    const ticketRaw = await contract.tickets(ticketId);
+    const eventRaw = await contract.events(ticketRaw[0]);
+    const t = {
+      ticketId: ticketId,
+      eventId: ticketRaw[0],
+      eventName: eventRaw[0],
+      facePrice: ethers.formatEther(ticketRaw[1]),
+      status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
+    };
+    if (t.status !== "Valid") {
+      alert("Ticket is not valid!");
+      navigate("/my-tickets");
+      return;
+    }
+    if (["Active", "Ended", "Cancelled"][Number(eventRaw[6])] !== "Active") {
+      alert("Event is not active!");
+      navigate("/my-tickets");
+      return;
+    }
 
-  const handleResell = () => {
-    alert(
-      `Listing ${selectedTicket} for resale at ${resellPrice} ETH`
-    );
-  };
+    setTicket(t);
+  }
+
+  useEffect(() => {
+    (async () => {
+      await checkOwnership();
+      await getTicket();
+    })();
+  }, [ticketId]);
+
+  async function handleResell() {
+    const contract = await getContract();
+    const maxPrice = await contract.getResaleCap(ticketId);
+
+    if (ethers.parseEther(resellPrice) > maxPrice) {
+      alert("Resale price is too high!");
+      return;
+    }
+    // need to wait for implementation of resale
+    console.log("Ticket resold!");
+    navigate("/marketplace");
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
@@ -41,45 +74,23 @@ export default function Resell() {
             List your owned ticket on the marketplace for resale.
           </p>
         </div>
-
+        {ticket && (
         <div className="grid md:grid-cols-2 gap-8 p-8">
           <div className="bg-gray-100 rounded-2xl p-6 space-y-5">
-            <div>
-              <label className="block text-lg font-semibold mb-2">
-                Select Ticket
-              </label>
-              <select
-                value={selectedTicket}
-                onChange={(e) => setSelectedTicket(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-lg"
-              >
-                {ownedTickets.map((ticket) => (
-                  <option key={ticket.id} value={ticket.id}>
-                    {ticket.id} — {ticket.event}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             <div className="bg-white rounded-2xl p-5 space-y-3 shadow-sm">
               <h2 className="text-2xl font-bold text-gray-900">
-                {currentTicket.event}
+                {ticket.eventName}
               </h2>
               <p className="text-lg">
-                <span className="font-semibold">Ticket ID:</span> {currentTicket.id}
-              </p>
-              <p className="text-lg">
-                <span className="font-semibold">Date:</span> {currentTicket.date}
-              </p>
-              <p className="text-lg">
-                <span className="font-semibold">Venue:</span> {currentTicket.venue}
+                <span className="font-semibold">Ticket ID:</span> #{ticket.ticketId}
               </p>
               <p className="text-lg">
                 <span className="font-semibold">Original Price:</span>{" "}
-                {currentTicket.originalPrice}
+                {ticket.facePrice} ETH
               </p>
               <p className="text-lg">
-                <span className="font-semibold">Status:</span> {currentTicket.status}
+                <span className="font-semibold">Status:</span> {ticket.status}
               </p>
             </div>
           </div>
@@ -103,30 +114,15 @@ export default function Resell() {
               </div>
             </div>
 
-            <div className="bg-blue-100 rounded-2xl p-5">
-              <p className="text-xl font-bold text-gray-900">
-                Listing Price: {resellPrice || "0"} ETH
-              </p>
-              <p className="text-sm text-gray-600 mt-2">
-                Smart contract validation and listing logic will be connected later.
-              </p>
-            </div>
-
-            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
-              <p className="text-sm text-yellow-800">
-                Make sure you only list tickets that are valid and owned by your
-                wallet. This page is currently frontend-only.
-              </p>
-            </div>
-
             <button
-              onClick={handleResell}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 rounded-2xl transition"
+              onClick={handleResell}
             >
               List for Resale
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

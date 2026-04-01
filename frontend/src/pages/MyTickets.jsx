@@ -4,11 +4,13 @@
 
 // can just use userid = 1 since we do not connect to any wallet yet
 
-import {useState, useEffect} from "react";
-import {getContract, connectWallet} from "../contract/useContract";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { getContract, connectWallet } from "../contract/useContract";
 import { ethers } from "ethers";
 
 export default function MyTickets() {
+  const navigate = useNavigate();
   const [myTickets, setMyTickets] = useState([]);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function MyTickets() {
             eventId: ticketRaw[0],
             eventName: eventRaw[0],
             facePrice: ethers.formatEther(ticketRaw[1]),
-            status: ["Valid", "Used", "Cancelled"][Number(ticketRaw[2])],
+            status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
         };
         myTicketsList.push(ticket);
       }
@@ -65,6 +67,8 @@ export default function MyTickets() {
                         ? "bg-green-100 text-green-700"
                         : ticket.status === "Used"
                         ? "bg-yellow-100 text-yellow-700"
+                        : ticket.status === "Resale"
+                        ? "bg-blue-100 text-blue-700"
                         : "bg-gray-200 text-gray-700"
                     }`}
                   >
@@ -94,13 +98,14 @@ export default function MyTickets() {
                   </button>
                   {
                     ticket.status === "Valid" && (
-                      <button className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition">
+                      <button className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition"
+                      onClick={() => navigate(`/resell/${ticket.ticketId}`)}>
                         Resell
                       </button>
                     )
                   }
                   {
-                    ticket.status == 2 && ( // need to wait for status === Resale to be implemented
+                    ticket.status === "Resale" && (
                       <button className="flex-1 bg-red-500 hover:bg-red-300 text-white font-bold py-3 rounded-xl transition">
                         Cancel Resale
                       </button>

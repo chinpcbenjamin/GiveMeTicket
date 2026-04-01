@@ -9,7 +9,7 @@ import "./ITicketingPlatform.sol";
 // ERC-721 event ticketing contract. Each ticket is a unique NFT. Implements ITicketingPlatform
 contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicketingPlatform {
 
-    enum TicketStatus { Valid, Used, Cancelled }
+    enum TicketStatus { Valid, Used, Resale, Cancelled }
     enum EventStatus  { Active, Ended, Cancelled }
 
     struct Event {
