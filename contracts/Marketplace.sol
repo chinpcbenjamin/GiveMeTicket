@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./TicketingPlatform.sol";
+
+// Resale marketplace for GiveMeTicket NFT tickets.
+// Sellers escrow their NFT here; ETH goes directly to the seller on purchase.
+// Must be registered via TicketingPlatform.setMarketplace() before use.
+contract Marketplace is ReentrancyGuard {
+
+    TicketingPlatform public immutable ticketing;
+
+    struct ResaleListing {
+        address seller;
+        uint256 price;
+    }
+
+    mapping(uint256 => ResaleListing) public resaleListings;
+
+    event TicketListed(uint256 indexed tokenId, address indexed seller, uint256 price);
+    event ResaleTicketSold(uint256 indexed tokenId, address indexed buyer, uint256 price);
+    event ListingCancelled(uint256 indexed tokenId, address indexed seller);
+
+    constructor(address _ticketing) {
+        require(_ticketing != address(0), "Invalid ticketing address");
+        ticketing = TicketingPlatform(_ticketing);
+    }
+
+    // Lists a ticket for resale. Seller must call TicketingPlatform.approve(marketplace, tokenId) first.
+    function listTicket(uint256 tokenId, uint256 price) external nonReentrant {
+        require(ticketing.ownerOf(tokenId) == msg.sender, "Not ticket owner");
+        require(price > 0,                                "Price must be > 0");
+
+        (uint256 eventId, , TicketingPlatform.TicketStatus ticketStatus) = ticketing.tickets(tokenId);
+        require(ticketStatus == TicketingPlatform.TicketStatus.Valid, "Ticket not Valid");
+
+        (, , , , , , TicketingPlatform.EventStatus eventStatus) = ticketing.events(eventId);
+        require(eventStatus == TicketingPlatform.EventStatus.Active,  "Event not active");
+
+        require(price <= ticketing.getResaleCap(tokenId), "Price exceeds resale cap");
+
+        // Transfer NFT into escrow (requires prior approval from seller)
+        ticketing.transferFrom(msg.sender, address(this), tokenId);
+
+        // Mark ticket as Resale in TicketingPlatform
+        ticketing.setTicketToResale(tokenId);
+
+        resaleListings[tokenId] = ResaleListing({ seller: msg.sender, price: price });
+
+        emit TicketListed(tokenId, msg.sender, price);
+    }
+
+    // Buys a resale-listed ticket. Transfers ETH to the seller and NFT to the buyer.
+    function buyResaleTicket(uint256 tokenId) external payable nonReentrant {
+        ResaleListing memory listing = resaleListings[tokenId];
+        require(listing.seller != address(0), "No active listing");
+        require(msg.value == listing.price,   "Incorrect payment amount");
+
+        address seller = listing.seller;
+        uint256 price  = listing.price;
+
+        // Effects (CEI)
+        delete resaleListings[tokenId];
+        ticketing.setTicketToValid(tokenId);
+
+        // Transfer NFT from escrow to buyer
+        ticketing.transferFrom(address(this), msg.sender, tokenId);
+
+        // Transfer ETH to seller
+        (bool success, ) = seller.call{value: price}("");
+        require(success, "ETH transfer failed");
+
+        emit ResaleTicketSold(tokenId, msg.sender, price);
+    }
+
+    // Cancels a listing and returns the ticket from escrow to the seller.
+    function cancelListing(uint256 tokenId) external nonReentrant {
+        ResaleListing memory listing = resaleListings[tokenId];
+        require(listing.seller == msg.sender, "Not the seller");
+
+        // Effects (CEI)
+        delete resaleListings[tokenId];
+        ticketing.setTicketToValid(tokenId);
+
+        // Return NFT from escrow to seller
+        ticketing.transferFrom(address(this), msg.sender, tokenId);
+
+        emit ListingCancelled(tokenId, msg.sender);
+    }
+}

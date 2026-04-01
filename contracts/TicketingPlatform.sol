@@ -14,17 +14,17 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     struct Event {
         string      name;
-        uint256     date;           
+        uint256     date;
         uint256     totalSupply;
         uint256     ticketsSold;
-        uint256     facePrice;      
-        uint256     resaleCapBps; 
+        uint256     facePrice;
+        uint256     resaleCapBps;
         EventStatus status;
     }
 
     struct Ticket {
         uint256      eventId;
-        uint256      facePrice;   
+        uint256      facePrice;
         TicketStatus status;
     }
 
@@ -33,11 +33,18 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     uint256 public nextEventId;
     uint256 public nextTokenId;
 
+    address public marketplace;
+
     event EventCreated(uint256 indexed eventId, string name, uint256 facePrice);
     event TicketMinted(uint256 indexed tokenId, uint256 indexed eventId, address buyer);
     event EventCancelled(uint256 indexed eventId);
     event EventEnded(uint256 indexed eventId);
     event TicketUsed(uint256 indexed tokenId);
+
+    modifier onlyMarketplace() {
+        require(msg.sender == marketplace, "Caller is not the marketplace");
+        _;
+    }
 
     constructor() ERC721("GiveMeTicket", "GMT") {}
 
@@ -75,9 +82,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     // Cancels an active event; freezes all ticket transfers. Only owner.
     function cancelEvent(uint256 eventId) external onlyOwner {
-        // Checks
         require(events[eventId].status == EventStatus.Active, "Event is not active");
-        // Effects
         events[eventId].status = EventStatus.Cancelled;
         emit EventCancelled(eventId);
     }
@@ -91,10 +96,16 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     // Marks a ticket as Used at the venue gate. Only owner.
     function markTicketUsed(uint256 tokenId) external onlyOwner {
-        require(_ownerOf(tokenId) != address(0),               "Ticket does not exist");
-        require(tickets[tokenId].status == TicketStatus.Valid,  "Ticket is not Valid");
+        require(_ownerOf(tokenId) != address(0),              "Ticket does not exist");
+        require(tickets[tokenId].status == TicketStatus.Valid, "Ticket is not Valid");
         tickets[tokenId].status = TicketStatus.Used;
         emit TicketUsed(tokenId);
+    }
+
+    // Sets the marketplace contract address. Only owner.
+    function setMarketplace(address _marketplace) external onlyOwner {
+        require(_marketplace != address(0), "Invalid marketplace address");
+        marketplace = _marketplace;
     }
 
     // Withdraws the full contract ETH balance to the owner. Only owner.
@@ -155,10 +166,27 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     }
 
     // =========================================================================
+    // Marketplace Hooks
+    // =========================================================================
+
+    // Sets a ticket status to Resale when it enters marketplace escrow. Only marketplace.
+    function setTicketToResale(uint256 tokenId) external onlyMarketplace {
+        require(tickets[tokenId].status == TicketStatus.Valid, "Ticket is not Valid");
+        tickets[tokenId].status = TicketStatus.Resale;
+    }
+
+    // Sets a ticket status back to Valid when it leaves marketplace escrow. Only marketplace.
+    function setTicketToValid(uint256 tokenId) external onlyMarketplace {
+        require(tickets[tokenId].status == TicketStatus.Resale, "Ticket is not in Resale");
+        tickets[tokenId].status = TicketStatus.Valid;
+    }
+
+    // =========================================================================
     // ERC-721 Transfer Override
     // =========================================================================
 
-    // Blocks transfers (not mints) when the event is not Active, the event date has passed, or the ticket is not Valid.
+    // Blocks transfers (not mints, not marketplace escrow releases) when the event
+    // is not Active, the event date has passed, or the ticket is not Valid.
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -167,7 +195,8 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     ) internal override(ERC721Enumerable) {
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
 
-        if (from != address(0)) {
+        // Skip checks for mints (from == 0) and marketplace escrow releases (from == marketplace)
+        if (from != address(0) && from != marketplace) {
             uint256 tokenId = firstTokenId;
             Ticket storage ticket = tickets[tokenId];
             Event  storage evt    = events[ticket.eventId];
@@ -177,6 +206,4 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
             require(ticket.status == TicketStatus.Valid, "Transfer blocked: ticket is not Valid");
         }
     }
-
-    
 }
