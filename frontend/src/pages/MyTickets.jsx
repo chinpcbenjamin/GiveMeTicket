@@ -4,33 +4,39 @@
 
 // can just use userid = 1 since we do not connect to any wallet yet
 
-export default function MyTickets() {
-  const myTickets = [
-    {
-      id: "1",
-      event: "Blockchain Music Fest 2026",
-      price: 5,
-      status: 1
-    },
-    {
-      id: "243",
-      event: "Blockchain Music Fest 2026",
-      price: 5,
-      status: 2
-    },
-    {
-      id: "3449",
-      event: "Blockchain Music Fest 2026",
-      price: 5,
-      status: 3,
-    },
-  ];
+import {useState, useEffect} from "react";
+import {getContract, connectWallet} from "../contract/useContract";
+import { ethers } from "ethers";
 
-  const TicketStatus = {
-    1: "Active",
-    2: "Listed for Resale",
-    3: "Used",
-  }
+export default function MyTickets() {
+  const [myTickets, setMyTickets] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      const contract = await getContract();
+      const currentUser = await connectWallet();
+
+      const nextTokenId = Number(await contract.nextTokenId());
+      const myTicketsList = [];
+
+      for (let i = 0; i < nextTokenId; i++) {
+        const ticket_owner = await contract.ownerOf(i);
+        if (ticket_owner.toLowerCase() !== currentUser.toLowerCase()) continue
+
+        const ticketRaw = await contract.tickets(i);
+        const eventRaw = await contract.events(ticketRaw[0]);
+        const ticket = {
+            ticketId: i,
+            eventId: ticketRaw[0],
+            eventName: eventRaw[0],
+            facePrice: ethers.formatEther(ticketRaw[1]),
+            status: ["Valid", "Used", "Cancelled"][Number(ticketRaw[2])],
+        };
+        myTicketsList.push(ticket);
+      }
+      setMyTickets(myTicketsList);
+    })();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
@@ -46,32 +52,32 @@ export default function MyTickets() {
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
             {myTickets.map((ticket) => (
               <div
-                key={ticket.id}
+                key={ticket.ticketId}
                 className="bg-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    {ticket.event}
-                  </h2>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {ticket.eventName}
+                </h2>
+                <div className="mt-1">
                   <span
                     className={`text-sm font-semibold px-3 py-1 rounded-full ${
-                      ticket.status === 1
+                      ticket.status === "Valid"
                         ? "bg-green-100 text-green-700"
-                        : ticket.status === 2
+                        : ticket.status === "Used"
                         ? "bg-yellow-100 text-yellow-700"
                         : "bg-gray-200 text-gray-700"
                     }`}
                   >
-                    {TicketStatus[ticket.status]}
+                    {ticket.status}
                   </span>
                 </div>
 
                 <div className="space-y-2 text-gray-700">
                   <p>
-                    <span className="font-semibold">Ticket ID:</span> #{ticket.id}
+                    <span className="font-semibold">Ticket ID:</span> #{ticket.ticketId}
                   </p>
                   <p>
-                    <span className="font-semibold">Price:</span> {ticket.price} ETH
+                    <span className="font-semibold">Price:</span> {ticket.facePrice} ETH
                   </p>
                 </div>
 
@@ -87,14 +93,14 @@ export default function MyTickets() {
                     View Details
                   </button>
                   {
-                    ticket.status == 1 && (
+                    ticket.status === "Valid" && (
                       <button className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition">
                         Resell
                       </button>
                     )
                   }
                   {
-                    ticket.status == 2 && (
+                    ticket.status == 2 && ( // need to wait for status === Resale to be implemented
                       <button className="flex-1 bg-red-500 hover:bg-red-300 text-white font-bold py-3 rounded-xl transition">
                         Cancel Resale
                       </button>
@@ -108,11 +114,8 @@ export default function MyTickets() {
           {myTickets.length === 0 && (
             <div className="text-center py-16">
               <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                No tickets found
+                No tickets found.
               </h2>
-              <p className="text-gray-500">
-                Tickets connected to the wallet will appear here later.
-              </p>
             </div>
           )}
         </div>
