@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { getContract } from "../contract/useContract";
+import { useNavigate } from "react-router-dom";
 
 export default function Events() {
+    const navigate = useNavigate();
     const [events, setEvents] = useState([]);
 
     async function getAllEvents() {
@@ -14,7 +16,7 @@ export default function Events() {
             const evtRaw = await contract.events(i);
 
             const evt = {
-                id: i,
+                eventId: i,
                 name: evtRaw[0],
                 date: Number(evtRaw[1]),
                 totalSupply: Number(evtRaw[2]),
@@ -72,9 +74,9 @@ export default function Events() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                     {events.map((listing) => (
-                    <tr key={listing.id}>
+                    <tr key={listing.eventId}>
                         <td className="px-6 py-4 text-left whitespace-nowrap text-sm text-gray-900">
-                        #{listing.id}
+                        #{listing.eventId}
                         </td>
                         <td className="px-6 py-4 text-left whitespace-nowrap text-sm text-gray-900">
                         {listing.name}
@@ -95,7 +97,9 @@ export default function Events() {
                         }
                         {
                             listing.status === "Active" && listing.totalSupply - listing.ticketsSold > 0 && (
-                                <button className="inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition">
+                                <button
+                                    className="inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition"
+                                    onClick={() => navigate(`/buy/${listing.eventId}`)}>
                                     Buy
                                 </button>
                             )
