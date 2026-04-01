@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import TicketingPlatformArtifact from "../../../artifacts/contracts/TicketingPlatform.sol/TicketingPlatform.json";
 
-const CONTRACT_ADDRESS = "xxyourcontractaddressxx"; // we need to edit this
+const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // we need to edit this
 const CONTRACT_ABI = TicketingPlatformArtifact.abi;
 const HARDHAT_CHAIN_ID = "0x7a69"; // 31337 in hex
 
@@ -13,9 +13,19 @@ export const useContract = () => {
     return window.ethereum;
   };
 
+  let walletPromise = null;
+
   const connectWallet = async () => {
     const ethereum = checkEthereum();
-    const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+
+    if (!walletPromise) {
+      walletPromise = ethereum.request({ method: "eth_requestAccounts" })
+        .finally(() => {
+          walletPromise = null;
+        });
+    }
+
+    const accounts = await walletPromise;
     return accounts[0];
   };
 
