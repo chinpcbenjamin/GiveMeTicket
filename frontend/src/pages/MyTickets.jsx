@@ -4,11 +4,13 @@
 
 // can just use userid = 1 since we do not connect to any wallet yet
 
-import {useState, useEffect} from "react";
-import {getContract, connectWallet} from "../contract/useContract";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { getContract, connectWallet } from "../contract/useContract";
 import { ethers } from "ethers";
 
 export default function MyTickets() {
+  const navigate = useNavigate();
   const [myTickets, setMyTickets] = useState([]);
 
   useEffect(() => {
@@ -96,7 +98,8 @@ export default function MyTickets() {
                   </button>
                   {
                     ticket.status === "Valid" && (
-                      <button className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition">
+                      <button className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition"
+                      onClick={() => navigate(`/resell/${ticket.ticketId}`)}>
                         Resell
                       </button>
                     )
