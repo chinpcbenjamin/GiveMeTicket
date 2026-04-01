@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./ITicketingPlatform.sol";
 
@@ -39,7 +39,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     event EventEnded(uint256 indexed eventId);
     event TicketUsed(uint256 indexed tokenId);
 
-    constructor() ERC721("GiveMeTicket", "GMT") Ownable(msg.sender) {}
+    constructor() ERC721("GiveMeTicket", "GMT") {}
 
     // =========================================================================
     // Organizer Functions
@@ -159,28 +159,24 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     // =========================================================================
 
     // Blocks transfers (not mints) when the event is not Active, the event date has passed, or the ticket is not Valid.
-    function _update(
+    function _beforeTokenTransfer(
+        address from,
         address to,
-        uint256 tokenId,
-        address auth
-    ) internal override(ERC721, ERC721Enumerable) returns (address) {
-        address from = _ownerOf(tokenId);
+        uint256 firstTokenId,
+        uint256 batchSize
+    ) internal override(ERC721Enumerable) {
+        super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
 
         if (from != address(0)) {
+            uint256 tokenId = firstTokenId;
             Ticket storage ticket = tickets[tokenId];
             Event  storage evt    = events[ticket.eventId];
 
-            require(evt.status == EventStatus.Active,  "Transfer blocked: event is not Active");
-            require(block.timestamp < evt.date,         "Transfer blocked: event date has passed");
+            require(evt.status == EventStatus.Active,   "Transfer blocked: event is not Active");
+            require(block.timestamp < evt.date,          "Transfer blocked: event date has passed");
             require(ticket.status == TicketStatus.Valid, "Transfer blocked: ticket is not Valid");
         }
-
-        return super._update(to, tokenId, auth);
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public view override(ERC721, ERC721Enumerable) returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
-    }
+    
 }

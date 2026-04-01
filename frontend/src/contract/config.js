@@ -1,4 +1,4 @@
-export const CONTRACT_ADDRESS = "0xYourContractAddressHere"; // we need to edit this
+export const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // we need to edit this
 
 export const ABI = [
   "function getResaleCap(uint256 tokenId) view returns (uint256)",
