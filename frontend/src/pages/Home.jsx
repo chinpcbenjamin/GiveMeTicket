@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ethers } from "ethers";
-import { connectWallet, getContract } from "../contract/useContract";
+import { connectWallet } from "../contract/useContract";
 
 
 export default function Home() {
@@ -16,30 +15,6 @@ export default function Home() {
         console.log("Connected wallet:", connected);
         } catch (err) {
         console.error("Failed to connect wallet:", err);
-        }
-    }
-
-    async function createDefaultEvent() {
-        if (!account) {
-        alert("Please connect your wallet first!");
-        return;
-        }
-
-        try {
-        const contract = await getContract();
-        const tx = await contract.createEvent(
-            "Blockchain Music Fest 2026",
-            Math.floor(Date.now() / 1000) + 86400,
-            100,
-            ethers.parseEther("5"),
-            12000
-        );
-
-        console.log("Transaction sent! Waiting for confirmation...");
-        const receipt = await tx.wait();
-        console.log("Event created!", receipt);
-        } catch (err) {
-            console.error(err);
         }
     }
 
@@ -95,9 +70,9 @@ export default function Home() {
 
                 <div 
                     className="bg-red-600 hover:bg-red-400 transition cursor-pointer rounded-2xl p-10 w-56 flex items-center justify-center"
-                    onClick={createDefaultEvent}
+                    onClick={() => navigate("admin")}
                 >
-                    <p className="text-xl text-white font-bold">Setup Demo</p>
+                    <p className="text-xl text-white font-bold">Admin</p>
                 </div>
             </div>
         </div>
