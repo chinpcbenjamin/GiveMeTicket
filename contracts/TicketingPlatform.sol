@@ -18,7 +18,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         uint256     totalSupply;
         uint256     ticketsSold;
         uint256     facePrice;
-        uint256     resaleCapBps;
+        uint256     resaleCapBps; 
         EventStatus status;
     }
 

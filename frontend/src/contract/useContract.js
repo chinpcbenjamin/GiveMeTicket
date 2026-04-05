@@ -1,8 +1,5 @@
 import { ethers } from "ethers";
-import TicketingPlatformArtifact from "../../../artifacts/contracts/TicketingPlatform.sol/TicketingPlatform.json";
-
-const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // we need to edit this
-const CONTRACT_ABI = TicketingPlatformArtifact.abi;
+import { ABI as CONTRACT_ABI, CONTRACT_ADDRESS } from "./config";
 const HARDHAT_CHAIN_ID = "0x7a69"; // 31337 in hex
 
 export const useContract = () => {
@@ -55,12 +52,66 @@ export const useContract = () => {
     return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
   };
 
+  const formatError = (error) => {
+    if (!error) return "Unknown error";
+
+    if (error.code === 4001 || error.code === "ACTION_REJECTED") {
+      return "Transaction rejected by user";
+    }
+
+    if (error.code === "UNPREDICTABLE_GAS_LIMIT" && error.info?.error?.message) {
+      return error.info.error.message;
+    }
+
+    if (error.data?.message) return error.data.message;
+    if (error.reason) return error.reason;
+    if (error.shortMessage) return error.shortMessage;
+
+    return error.message || String(error);
+  };
+
+  const resellTicket = async (ticketId, price) => {
+    try {
+      const contract = await getContract();
+
+      if (ticketId === undefined || ticketId === null || ticketId === "") {
+        throw new Error("Ticket ID is required");
+      }
+
+      if (price === undefined || price === null || price === "") {
+        throw new Error("Price is required");
+      }
+
+      let priceInWei;
+      if (typeof price === "bigint") {
+        priceInWei = price;
+      } else {
+        const normalizedPrice = price.toString();
+        priceInWei = ethers.parseEther(normalizedPrice);
+      }
+
+      const tx = await contract.resellTicket(ticketId, priceInWei);
+      await tx.wait();
+
+      return {
+        success: true,
+        txHash: tx.hash,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: formatError(error),
+      };
+    }
+  };
+
   return {
     connectWallet,
     getProvider,
     getSigner,
     getContract,
     ensureCorrectNetwork,
+    resellTicket,
   };
 };
 
@@ -88,4 +139,9 @@ export async function connectWallet() {
 export async function ensureCorrectNetwork() {
   const { ensureCorrectNetwork: ecn } = useContract();
   return await ecn();
+}
+
+export async function resellTicket(ticketId, price) {
+  const { resellTicket: rt } = useContract();
+  return await rt(ticketId, price);
 }
