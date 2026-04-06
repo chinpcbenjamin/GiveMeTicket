@@ -76,49 +76,52 @@ export default function ResellBuy() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex justify-center items-center px-4 py-16">
       {ticket && (
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-lg overflow-hidden">
-        <div className="bg-black p-8">
-          <h1 className="text-4xl text-white font-extrabold mb-2">Buy Resale Ticket</h1>
-          <p className="text-gray-300">
-            Buy a resale ticket for the event through GiveMeTicket.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8 p-8">
-          <div className="bg-gray-200 rounded-2xl h-72 flex items-center justify-center text-gray-500 text-lg font-semibold">
-            Event Banner Placeholder
+      <div className="w-full max-w-2xl">
+        <div className="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border-b border-slate-700/50 p-8">
+            <p className="text-xs uppercase tracking-widest text-cyan-400 mb-2">Resale Marketplace</p>
+            <h1 className="text-3xl text-white font-extrabold">{ticket.eventName}</h1>
+            <p className="text-slate-400 mt-1">Purchase a resale ticket</p>
           </div>
 
-          <div className="flex flex-col gap-5">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900">
-                {ticket.eventName}
-              </h2>
-            </div>
+          <div className="p-8 space-y-6">
+            <div className="bg-slate-900/60 rounded-xl p-5 border border-slate-700/30 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Original Price</p>
+                  <p className="text-lg font-semibold text-slate-400">{ticket.facePrice} <span className="text-sm">ETH</span></p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Resale Price</p>
+                  <p className="text-2xl font-bold text-white">{ticket.resalePrice} <span className="text-sm text-slate-400">ETH</span></p>
+                </div>
+              </div>
 
-            <div className="bg-gray-100 rounded-2xl p-5 space-y-3">
-              <p className="text-lg">
-                <span className="font-semibold">Original Price per Ticket:</span> {ticket.facePrice} ETH
-              </p>
-              <p className="text-medium">
-                <span className="font-semibold">Seller:</span> {ticket.seller}
-              </p>
-              <p className="text-medium">
-                <span className="font-semibold">Resale Price per Ticket (You Pay):</span> {ticket.resalePrice} ETH
-              </p>
-              <p className="text-medium">
-                <span className="font-semibold">Current Price Cap:</span> {ticket.currentResaleCap} ETH
-              </p>
-            </div>
+              <div>
+                <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Price Cap</p>
+                <p className="text-lg font-semibold text-amber-400">{ticket.currentResaleCap} <span className="text-sm text-amber-600">ETH</span></p>
+              </div>
 
+              <div>
+                <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Seller</p>
+                <p className="text-sm text-slate-300 font-mono">{ticket.seller}</p>
+              </div>
+            </div>
 
             <button
               onClick={handleResellBuy}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-2xl transition"
+              className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/40 transition-all duration-200 cursor-pointer"
             >
-              Buy Now
+              Buy Now &mdash; {ticket.resalePrice} ETH
+            </button>
+
+            <button
+              onClick={() => navigate("/marketplace")}
+              className="w-full py-3 rounded-xl font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 hover:text-white hover:bg-slate-700/40 transition-all duration-200 cursor-pointer"
+            >
+              Back to Marketplace
             </button>
           </div>
         </div>

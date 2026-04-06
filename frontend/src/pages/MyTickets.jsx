@@ -65,92 +65,96 @@ export default function MyTickets() {
     }
   }
 
+  const statusStyles = {
+    Valid: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+    Used: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    Resale: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    Cancelled: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
-      <div className="w-full max-w-6xl bg-white rounded-3xl shadow-lg overflow-hidden">
-        <div className="bg-black p-8">
-          <h1 className="text-4xl text-white font-extrabold mb-2">My Tickets</h1>
-          <p className="text-gray-300">
-            View all tickets currently owned by your wallet.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 py-16">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-10">
+          <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Your Collection</p>
+          <h1 className="text-4xl font-extrabold bg-gradient-to-r from-violet-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+            My Tickets
+          </h1>
+          <p className="text-slate-400 mt-2">View and manage all tickets in your wallet</p>
         </div>
 
-        <div className="p-8">
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {myTickets.map((ticket) => (
-              <div
-                key={ticket.ticketId}
-                className="bg-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition"
-              >
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {ticket.eventName}
-                </h2>
-                <div className="mt-1">
-                  <span
-                    className={`text-sm font-semibold px-3 py-1 rounded-full ${
-                      ticket.status === "Valid"
-                        ? "bg-green-100 text-green-700"
-                        : ticket.status === "Used"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : ticket.status === "Resale"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-gray-200 text-gray-700"
-                    }`}
-                  >
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {myTickets.map((ticket) => (
+            <div
+              key={ticket.ticketId}
+              className="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden hover:border-slate-600/50 transition-all duration-200 group"
+            >
+              <div className="p-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <h2 className="text-xl font-bold text-white group-hover:text-violet-300 transition-colors">
+                    {ticket.eventName}
+                  </h2>
+                  <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${statusStyles[ticket.status] || statusStyles.Cancelled}`}>
                     {ticket.status}
                   </span>
                 </div>
 
-                <div className="space-y-2 text-gray-700">
-                  <p>
-                    <span className="font-semibold">Ticket ID:</span> #{ticket.ticketId}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Price:</span> {ticket.facePrice} ETH
-                  </p>
-                </div>
-
-                <div className="mt-6 bg-white rounded-xl border border-gray-200 p-4 text-center">
-                  <p className="text-sm text-gray-500 mb-1">QR / NFT Preview</p>
-                  <div className="h-24 flex items-center justify-center rounded-lg bg-gray-100 text-gray-400 font-semibold">
-                    Ticket Preview
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-900/60 rounded-lg p-3">
+                    <p className="text-xs uppercase tracking-widest text-slate-500 mb-0.5">Ticket ID</p>
+                    <p className="font-semibold text-slate-300 font-mono">#{ticket.ticketId}</p>
+                  </div>
+                  <div className="bg-slate-900/60 rounded-lg p-3">
+                    <p className="text-xs uppercase tracking-widest text-slate-500 mb-0.5">Price</p>
+                    <p className="font-semibold text-white">{ticket.facePrice} <span className="text-xs text-slate-400">ETH</span></p>
                   </div>
                 </div>
 
-                <div className="mt-6 flex gap-3">
-                  <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition">
-                    View Details
-                  </button>
-                  {
-                    ticket.status === "Valid" && (
-                      <button className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition"
-                      onClick={() => navigate(`/resell/${ticket.ticketId}`)}>
-                        Resell
-                      </button>
-                    )
-                  }
-                  {
-                    ticket.status === "Resale" && (
-                      <button
-                        onClick={() => handleCancelResale(ticket.ticketId)}
-                        className="flex-1 bg-red-500 hover:bg-red-300 disabled:bg-red-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition"
-                      >
-                        Cancel Resale
-                      </button>
-                    )
-                  }
+                <div className="flex gap-2 pt-1">
+                  {ticket.status === "Valid" && (
+                    <button
+                      className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/30 transition-all duration-200 cursor-pointer text-sm"
+                      onClick={() => navigate(`/resell/${ticket.ticketId}`)}
+                    >
+                      Resell
+                    </button>
+                  )}
+                  {ticket.status === "Resale" && (
+                    <button
+                      onClick={() => handleCancelResale(ticket.ticketId)}
+                      className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-900/30 transition-all duration-200 cursor-pointer text-sm"
+                    >
+                      Cancel Resale
+                    </button>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-
-          {myTickets.length === 0 && (
-            <div className="text-center py-16">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                No tickets found.
-              </h2>
             </div>
-          )}
+          ))}
+        </div>
+
+        {myTickets.length === 0 && (
+          <div className="text-center py-24">
+            <div className="inline-block bg-slate-800/60 border border-slate-700/50 rounded-2xl px-12 py-10">
+              <p className="text-2xl font-bold text-slate-400 mb-2">No tickets found</p>
+              <p className="text-slate-500">Purchase tickets from events or the marketplace</p>
+              <button
+                onClick={() => navigate("/events")}
+                className="mt-6 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/30 transition-all duration-200 cursor-pointer"
+              >
+                Browse Events
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-8">
+          <button
+            onClick={() => navigate("/")}
+            className="py-3 px-6 rounded-xl font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 hover:text-white hover:bg-slate-700/40 transition-all duration-200 cursor-pointer"
+          >
+            Back to Home
+          </button>
         </div>
       </div>
     </div>
