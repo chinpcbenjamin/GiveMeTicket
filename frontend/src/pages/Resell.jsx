@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getContract, connectWallet } from "../contract/useContract";
+import { getContract, connectWallet, listTicketForResale } from "../contract/useContract";
 import { ethers } from "ethers";
 
 export default function Resell() {
@@ -61,9 +61,18 @@ export default function Resell() {
       alert("Resale price is too high!");
       return;
     }
-    // need to wait for implementation of resale
-    console.log("Ticket resold!");
-    navigate("/marketplace");
+
+    try {
+      const result = await listTicketForResale(ticketId, resellPrice);
+      if (!result.success) {
+        alert(result.error);
+        return;
+      }
+      navigate("/marketplace");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to list ticket for resale");
+    }
   }
 
   return (

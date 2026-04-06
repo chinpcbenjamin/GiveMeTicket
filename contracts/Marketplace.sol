@@ -2,12 +2,14 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./TicketingPlatform.sol";
 
 // Resale marketplace for GiveMeTicket NFT tickets.
 // Sellers escrow their NFT here; ETH goes directly to the seller on purchase.
 // Must be registered via TicketingPlatform.setMarketplace() before use.
 contract Marketplace is ReentrancyGuard {
+    using EnumerableSet for EnumerableSet.UintSet;
 
     TicketingPlatform public immutable ticketing;
 
@@ -17,6 +19,7 @@ contract Marketplace is ReentrancyGuard {
     }
 
     mapping(uint256 => ResaleListing) public resaleListings;
+    EnumerableSet.UintSet private _activeListings;
 
     event TicketListed(uint256 indexed tokenId, address indexed seller, uint256 price);
     event ResaleTicketSold(uint256 indexed tokenId, address indexed buyer, uint256 price);
@@ -47,6 +50,7 @@ contract Marketplace is ReentrancyGuard {
         ticketing.setTicketToResale(tokenId);
 
         resaleListings[tokenId] = ResaleListing({ seller: msg.sender, price: price });
+        _activeListings.add(tokenId);
 
         emit TicketListed(tokenId, msg.sender, price);
     }
@@ -62,6 +66,7 @@ contract Marketplace is ReentrancyGuard {
 
         // Effects (CEI)
         delete resaleListings[tokenId];
+        _activeListings.remove(tokenId);
         ticketing.setTicketToValid(tokenId);
 
         // Transfer NFT from escrow to buyer
@@ -81,11 +86,22 @@ contract Marketplace is ReentrancyGuard {
 
         // Effects (CEI)
         delete resaleListings[tokenId];
+        _activeListings.remove(tokenId);
         ticketing.setTicketToValid(tokenId);
 
         // Return NFT from escrow to seller
         ticketing.transferFrom(address(this), msg.sender, tokenId);
 
         emit ListingCancelled(tokenId, msg.sender);
+    }
+
+    // Returns the number of active resale listings.
+    function getActiveListingCount() external view returns (uint256) {
+        return _activeListings.length();
+    }
+
+    // Returns the token ID of the active listing at a given index.
+    function getActiveListingAt(uint256 index) external view returns (uint256) {
+        return _activeListings.at(index);
     }
 }
