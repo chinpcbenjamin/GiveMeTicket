@@ -9,27 +9,37 @@ import { getContract } from "../contract/useContract";
 export default function Buy() {
   const navigate = useNavigate();
 
-  const { ticketId } = useParams();
+  const { eventId } = useParams();
   useEffect(() => {
-    if (ticketId == null) return;
-    viewTicket(Number(ticketId));
-  }, [ticketId]);
+    if (eventId == null) return;
+    viewEvent(Number(eventId));
+  }, [eventId]);
 
   const [event, setEvent] = useState(null);
-  async function viewTicket(ticketId) {
+  async function viewEvent(eventId) {
     try {
       const contract = await getContract();
-      const ticketRaw = await contract.tickets(ticketId);
+      const eventRaw = await contract.events(eventId);
       
       const evt = {
-        ticketId: ticketId,
-        eventId: ticketRaw[0],
-        eventName: ticketRaw[1],
-        facePrice: ethers.formatEther(ticketRaw[2]),
-        status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[3])],
+        eventId: eventId,
+        eventName: eventRaw[0],
+        facePrice: ethers.formatEther(eventRaw[4]),
+        totalSupply: Number(eventRaw[2]),
+        ticketsSold: Number(eventRaw[3]),
+        status: ["Active", "Ended", "Cancelled"][Number(eventRaw[6])],
       };
-      console.log("Ticket data:", ticket);
-      setTicket(ticket);
+      if (evt.status !== "Active") {
+        alert("This event is not active.");
+        navigate("/events");
+        return;
+      }
+      if (evt.totalSupply - evt.ticketsSold <= 0) {
+        alert("This event is sold out.");
+        navigate("/events");
+        return;
+      }
+      setEvent(evt);
     } catch (err) {
       console.error("Failed to fetch event:", err);
     }
@@ -51,6 +61,7 @@ export default function Buy() {
   const handleBuy = async() => {
     const ok = await buyTicket()
     if (ok) {
+      alert("Ticket purchased successfully!");
       navigate("/my-tickets")
     } else {
       alert("Failed to buy ticket")

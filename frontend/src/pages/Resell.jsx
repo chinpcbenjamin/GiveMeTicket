@@ -16,19 +16,22 @@ export default function Resell() {
     if (ticket_owner.toLowerCase() !== currentUser.toLowerCase()) {
       alert("You do not own this ticket!");
       navigate("/my-tickets");
-      return;
+      return false;
     }
+    return true;
   }
 
   async function getTicket() {
     const contract = await getContract();
     const ticketRaw = await contract.tickets(ticketId);
     const eventRaw = await contract.events(ticketRaw[0]);
+    const cap = await contract.getResaleCap(ticketId);
     const t = {
       ticketId: ticketId,
       eventId: ticketRaw[0],
       eventName: eventRaw[0],
       facePrice: ethers.formatEther(ticketRaw[1]),
+      currentResaleCap: ethers.formatEther(cap),
       status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
       resaleCommissionBps: Number(eventRaw[7]) / 100,
     };
@@ -48,7 +51,8 @@ export default function Resell() {
 
   useEffect(() => {
     (async () => {
-      await checkOwnership();
+      const isOwner = await checkOwnership();
+      if (!isOwner) return;
       await getTicket();
     })();
   }, [ticketId]);
@@ -68,7 +72,8 @@ export default function Resell() {
         alert(result.error);
         return;
       }
-      navigate("/marketplace");
+      alert("Ticket listed for resale!");
+      navigate("/my-tickets");
     } catch (error) {
       console.error(error);
       alert("Failed to list ticket for resale");
@@ -104,6 +109,9 @@ export default function Resell() {
               </p>
               <p className="text-lg">
                 <span className="font-semibold">Resale Commission Fee:</span> {ticket.resaleCommissionBps}%
+              </p>
+              <p className="text-lg">
+                <span className="font-semibold">Current Resale Cap:</span> {ticket.currentResaleCap} ETH
               </p>
             </div>
           </div>

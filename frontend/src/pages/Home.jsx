@@ -70,7 +70,7 @@ export default function Home() {
 
                 <div 
                     className="bg-red-600 hover:bg-red-400 transition cursor-pointer rounded-2xl p-10 w-56 flex items-center justify-center"
-                    onClick={() => navigate("admin")}
+                    onClick={() => navigate("/admin")}
                 >
                     <p className="text-xl text-white font-bold">Admin</p>
                 </div>

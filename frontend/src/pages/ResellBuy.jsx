@@ -21,6 +21,14 @@ export default function ResellBuy() {
       const resaleListing = await marketplace.resaleListings(ticketId);
       const eventRaw = await ticketing.events(ticketRaw[0]);
 
+      if (resaleListing[0] === ethers.ZeroAddress) {
+        alert("This ticket is not listed for resale.");
+        navigate("/marketplace");
+        return;
+      }
+
+      const cap = await ticketing.getResaleCap(ticketId);
+
       const t = {
         ticketId: ticketId,
         eventId: ticketRaw[0],
@@ -28,6 +36,7 @@ export default function ResellBuy() {
         facePrice: ethers.formatEther(ticketRaw[1]),
         seller: resaleListing[0],
         resalePrice: ethers.formatEther(resaleListing[1]),
+        currentResaleCap: ethers.formatEther(cap),
         status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
       };
       console.log("Ticket data:", t);
@@ -55,6 +64,7 @@ export default function ResellBuy() {
     try {
       const ok = await buyResaleTicket();
       if (ok) {
+        alert("Resale ticket purchased successfully!");
         navigate("/my-tickets");
       } else {
         alert("Failed to buy ticket");
@@ -97,6 +107,9 @@ export default function ResellBuy() {
               </p>
               <p className="text-medium">
                 <span className="font-semibold">Resale Price per Ticket (You Pay):</span> {ticket.resalePrice} ETH
+              </p>
+              <p className="text-medium">
+                <span className="font-semibold">Current Price Cap:</span> {ticket.currentResaleCap} ETH
               </p>
             </div>
 

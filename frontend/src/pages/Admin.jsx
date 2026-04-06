@@ -85,7 +85,8 @@ export default function Admin() {
     const handleCreateEvent = async() => {
         const ok = await createEvent()
         if (ok) {
-            window.location.reload()
+            alert("Event created successfully!");
+            navigate("/events")
         } else {
             alert("You are not the owner!")
         }
@@ -151,7 +152,7 @@ export default function Admin() {
 
                 {showCreateModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                        <div className="bg-white rounded-2xl p-8 w-150 flex flex-col gap-4">
+                        <div className="bg-white rounded-2xl p-8 w-200 flex flex-col gap-4">
                             
                             <h2 className="text-2xl font-bold text-center">Create Event</h2>
 
