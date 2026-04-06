@@ -10,6 +10,7 @@ import MyTickets from './pages/MyTickets.jsx';
 import Marketplace from './pages/Marketplace.jsx';
 import Events from './pages/Events.jsx';
 import Admin from './pages/Admin.jsx'
+import ResellBuy from './pages/ResellBuy.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -18,6 +19,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/" element={<Home />} />
         <Route path="/buy/:eventId" element={<Buy />} />
         <Route path="/resell/:ticketId" element={<Resell />} />
+        <Route path="/resell-buy/:ticketId" element={<ResellBuy />} />
         <Route path="/my-tickets" element={<MyTickets />} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/events" element={<Events />} />

@@ -1,5 +1,10 @@
 import { ethers } from "ethers";
-import { ABI as CONTRACT_ABI, CONTRACT_ADDRESS } from "./config";
+import {
+  TICKETING_PLATFORM_ABI,
+  TICKETING_PLATFORM_ADDRESS,
+  MARKETPLACE_ABI,
+  MARKETPLACE_ADDRESS,
+} from "./config";
 const HARDHAT_CHAIN_ID = "0x7a69"; // 31337 in hex
 
 export const useContract = () => {
@@ -48,8 +53,13 @@ export const useContract = () => {
   const getContract = async () => {
     await ensureCorrectNetwork();
     const signer = await getSigner();
+    return new ethers.Contract(TICKETING_PLATFORM_ADDRESS, TICKETING_PLATFORM_ABI, signer);
+  };
 
-    return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+  const getMarketplaceContract = async () => {
+    await ensureCorrectNetwork();
+    const signer = await getSigner();
+    return new ethers.Contract(MARKETPLACE_ADDRESS, MARKETPLACE_ABI, signer);
   };
 
   const formatError = (error) => {
@@ -70,38 +80,35 @@ export const useContract = () => {
     return error.message || String(error);
   };
 
-  const resellTicket = async (ticketId, price) => {
+  const listTicketForResale = async (ticketId, priceEth) => {
     try {
-      const contract = await getContract();
-
       if (ticketId === undefined || ticketId === null || ticketId === "") {
         throw new Error("Ticket ID is required");
       }
-
-      if (price === undefined || price === null || price === "") {
+      if (!priceEth || priceEth === "") {
         throw new Error("Price is required");
       }
 
-      let priceInWei;
-      if (typeof price === "bigint") {
-        priceInWei = price;
-      } else {
-        const normalizedPrice = price.toString();
-        priceInWei = ethers.parseEther(normalizedPrice);
+      const priceInWei = ethers.parseEther(String(priceEth).trim());
+
+      const ticketing = await getContract();
+      const marketplace = await getMarketplaceContract();
+      const signer = await getSigner();
+      const owner = await signer.getAddress();
+
+      const approvedAddr = await ticketing.getApproved(ticketId);
+      const approvedAll = await ticketing.isApprovedForAll(owner, MARKETPLACE_ADDRESS);
+      if (!approvedAll && approvedAddr.toLowerCase() !== MARKETPLACE_ADDRESS.toLowerCase()) {
+        const approveTx = await ticketing.approve(MARKETPLACE_ADDRESS, ticketId);
+        await approveTx.wait();
       }
 
-      const tx = await contract.resellTicket(ticketId, priceInWei);
-      await tx.wait();
+      const listTx = await marketplace.listTicket(ticketId, priceInWei);
+      await listTx.wait();
 
-      return {
-        success: true,
-        txHash: tx.hash,
-      };
+      return { success: true, txHash: listTx.hash };
     } catch (error) {
-      return {
-        success: false,
-        error: formatError(error),
-      };
+      return { success: false, error: formatError(error) };
     }
   };
 
@@ -110,8 +117,9 @@ export const useContract = () => {
     getProvider,
     getSigner,
     getContract,
+    getMarketplaceContract,
     ensureCorrectNetwork,
-    resellTicket,
+    listTicketForResale,
   };
 };
 
@@ -141,7 +149,12 @@ export async function ensureCorrectNetwork() {
   return await ecn();
 }
 
-export async function resellTicket(ticketId, price) {
-  const { resellTicket: rt } = useContract();
-  return await rt(ticketId, price);
+export async function listTicketForResale(ticketId, priceEth) {
+  const { listTicketForResale: list } = useContract();
+  return await list(ticketId, priceEth);
+}
+
+export async function getMarketplaceContract() {
+  const { getMarketplaceContract: gmc } = useContract();
+  return await gmc();
 }

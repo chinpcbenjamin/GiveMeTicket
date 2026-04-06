@@ -9,31 +9,27 @@ import { getContract } from "../contract/useContract";
 export default function Buy() {
   const navigate = useNavigate();
 
-  const { eventId } = useParams();
+  const { ticketId } = useParams();
   useEffect(() => {
-    if (eventId == null) return;
-    viewEvent(Number(eventId));
-  }, [eventId]);
+    if (ticketId == null) return;
+    viewTicket(Number(ticketId));
+  }, [ticketId]);
 
   const [event, setEvent] = useState(null);
-  async function viewEvent(eventId) {
+  async function viewTicket(ticketId) {
     try {
       const contract = await getContract();
-      const evtRaw = await contract.events(eventId);
+      const ticketRaw = await contract.tickets(ticketId);
       
       const evt = {
-        eventId: eventId,
-        name: evtRaw[0],
-        date: Number(evtRaw[1]),
-        totalSupply: Number(evtRaw[2]),
-        ticketsSold: Number(evtRaw[3]),
-        facePrice: ethers.formatEther(evtRaw[4]),
-        resaleCapBps: Number(evtRaw[5]),
-        status: ["Active", "Ended", "Cancelled"][Number(evtRaw[6])],
-        resaleCommissionBps: Number(evtRaw[7]),
+        ticketId: ticketId,
+        eventId: ticketRaw[0],
+        eventName: ticketRaw[1],
+        facePrice: ethers.formatEther(ticketRaw[2]),
+        status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[3])],
       };
-      console.log("Event data:", evt);
-      setEvent(evt);
+      console.log("Ticket data:", ticket);
+      setTicket(ticket);
     } catch (err) {
       console.error("Failed to fetch event:", err);
     }

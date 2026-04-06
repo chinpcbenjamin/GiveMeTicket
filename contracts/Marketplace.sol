@@ -2,12 +2,14 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./TicketingPlatform.sol";
 
 // Resale marketplace for GiveMeTicket NFT tickets.
 // Sellers escrow their NFT here; ETH goes directly to the seller on purchase.
 // Must be registered via TicketingPlatform.setMarketplace() before use.
 contract Marketplace is ReentrancyGuard {
+    using EnumerableSet for EnumerableSet.UintSet;
 
     TicketingPlatform public immutable ticketing;
 
@@ -17,12 +19,13 @@ contract Marketplace is ReentrancyGuard {
     }
 
     mapping(uint256 => ResaleListing) public resaleListings;
+    EnumerableSet.UintSet private _activeListings;
 
     event TicketListed(uint256 indexed tokenId, address indexed seller, uint256 price);
     event ResaleTicketSold(uint256 indexed tokenId, address indexed buyer, uint256 price);
     event ListingCancelled(uint256 indexed tokenId, address indexed seller);
 
-    constructor(address _ticketing) {
+    constructor(address payable _ticketing) {
         require(_ticketing != address(0), "Invalid ticketing address");
         ticketing = TicketingPlatform(_ticketing);
     }
@@ -47,11 +50,12 @@ contract Marketplace is ReentrancyGuard {
         ticketing.setTicketToResale(tokenId);
 
         resaleListings[tokenId] = ResaleListing({ seller: msg.sender, price: price });
+        _activeListings.add(tokenId);
 
         emit TicketListed(tokenId, msg.sender, price);
     }
 
-    // Buys a resale-listed ticket. Transfers ETH to the seller and NFT to the buyer.
+    // Buys a resale-listed ticket. Splits ETH between seller and TicketingPlatform (commission).
     function buyResaleTicket(uint256 tokenId) external payable nonReentrant {
         ResaleListing memory listing = resaleListings[tokenId];
         require(listing.seller != address(0), "No active listing");
@@ -60,16 +64,28 @@ contract Marketplace is ReentrancyGuard {
         address seller = listing.seller;
         uint256 price  = listing.price;
 
+        (uint256 eventId, , ) = ticketing.tickets(tokenId);
+        (, , , , , , , uint256 commissionBps) = ticketing.events(eventId);
+        uint256 commission = price * commissionBps / 10000;
+        uint256 sellerProceeds = price - commission;
+
         // Effects (CEI)
         delete resaleListings[tokenId];
+        _activeListings.remove(tokenId);
         ticketing.setTicketToValid(tokenId);
 
         // Transfer NFT from escrow to buyer
         ticketing.transferFrom(address(this), msg.sender, tokenId);
 
-        // Transfer ETH to seller
-        (bool success, ) = seller.call{value: price}("");
-        require(success, "ETH transfer failed");
+        // Transfer commission to TicketingPlatform (withdrawable by owner)
+        if (commission > 0) {
+            (bool commissionOk, ) = address(ticketing).call{value: commission}("");
+            require(commissionOk, "Commission transfer failed");
+        }
+
+        // Transfer remaining ETH to seller
+        (bool sellerOk, ) = seller.call{value: sellerProceeds}("");
+        require(sellerOk, "Seller transfer failed");
 
         emit ResaleTicketSold(tokenId, msg.sender, price);
     }
@@ -81,11 +97,22 @@ contract Marketplace is ReentrancyGuard {
 
         // Effects (CEI)
         delete resaleListings[tokenId];
+        _activeListings.remove(tokenId);
         ticketing.setTicketToValid(tokenId);
 
         // Return NFT from escrow to seller
         ticketing.transferFrom(address(this), msg.sender, tokenId);
 
         emit ListingCancelled(tokenId, msg.sender);
+    }
+
+    // Returns the number of active resale listings.
+    function getActiveListingCount() external view returns (uint256) {
+        return _activeListings.length();
+    }
+
+    // Returns the token ID of the active listing at a given index.
+    function getActiveListingAt(uint256 index) external view returns (uint256) {
+        return _activeListings.at(index);
     }
 }

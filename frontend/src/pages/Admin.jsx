@@ -1,13 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
-import { connectWallet, getContract } from "../contract/useContract";
+import { connectWallet, getContract, getProvider } from "../contract/useContract";
+import { TICKETING_PLATFORM_ADDRESS } from "../contract/config";
 
 
 export default function Admin() {
     const navigate = useNavigate();
 
     const [account, setAccount] = useState(null);
+    const [contractBalance, setContractBalance] = useState(null);
+
+    async function fetchBalance() {
+        try {
+            const provider = await getProvider();
+            const balance = await provider.getBalance(TICKETING_PLATFORM_ADDRESS);
+            setContractBalance(ethers.formatEther(balance));
+        } catch (err) {
+            console.error("Failed to fetch balance:", err);
+        }
+    }
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [eventName, setEventName] = useState("");
@@ -21,7 +33,7 @@ export default function Admin() {
         try {
             const connected = await connectWallet();
             setAccount(connected);
-            console.log("Connected wallet:", connected);
+            await fetchBalance();
         } catch (err) {
             console.error("Failed to connect wallet:", err);
         }
@@ -40,11 +52,12 @@ export default function Admin() {
     async function withdrawMoney() {
         try {
             const contract = await getContract();
-            const tx = await contract.withdraw()
-            console.log("Successfully withdrawed")
+            const tx = await contract.withdraw();
+            await tx.wait();
+            await fetchBalance();
         } catch (err) {
-            alert("You are not the owner!")
-            console.error(err)
+            alert("You are not the owner!");
+            console.error(err);
         }
     }
 
@@ -98,6 +111,14 @@ export default function Admin() {
                         onClick={() => getOwnerAddress()}
                     >
                         <p className="text-xl text-white font-bold">GetOwnerAddress (Debug)</p>
+                    </div>
+                )}
+
+                {account && contractBalance !== null && (
+                    <div
+                        className="bg-green-400 hover:bg-gray-800 transition cursor-pointer rounded-2xl p-10 w-56 text-center"
+                    >
+                        <p className="text-xl text-white font-bold">Contract Balance (Debug): {contractBalance} ETH</p>
                     </div>
                 )}
 

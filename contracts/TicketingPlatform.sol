@@ -113,6 +113,9 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         marketplace = _marketplace;
     }
 
+    // Accepts ETH (e.g. resale commission from Marketplace).
+    receive() external payable {}
+
     // Withdraws the full contract ETH balance to the owner. Only owner.
     function withdraw() external onlyOwner nonReentrant {
         uint256 balance = address(this).balance;
