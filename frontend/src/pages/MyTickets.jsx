@@ -6,24 +6,34 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getContract, connectWallet } from "../contract/useContract";
+import { getContract, getMarketplaceContract, connectWallet } from "../contract/useContract";
+import { MARKETPLACE_ADDRESS } from "../contract/config";
 import { ethers } from "ethers";
 
 export default function MyTickets() {
   const navigate = useNavigate();
   const [myTickets, setMyTickets] = useState([]);
 
-  useEffect(() => {
-    (async () => {
+  async function fetchTickets() {
       const contract = await getContract();
-      const currentUser = await connectWallet();
+      const marketplace = await getMarketplaceContract();
+      const currentUser = (await connectWallet()).toLowerCase();
+      const marketplaceLower = MARKETPLACE_ADDRESS.toLowerCase();
 
       const nextTokenId = Number(await contract.nextTokenId());
       const myTicketsList = [];
 
       for (let i = 0; i < nextTokenId; i++) {
-        const ticket_owner = await contract.ownerOf(i);
-        if (ticket_owner.toLowerCase() !== currentUser.toLowerCase()) continue
+        const owner = (await contract.ownerOf(i)).toLowerCase();
+
+        let isMine = owner === currentUser;
+
+        if (!isMine && owner === marketplaceLower) {
+          const listing = await marketplace.resaleListings(i);
+          isMine = listing.seller.toLowerCase() === currentUser;
+        }
+
+        if (!isMine) continue;
 
         const ticketRaw = await contract.tickets(i);
         const eventRaw = await contract.events(ticketRaw[0]);
@@ -37,8 +47,23 @@ export default function MyTickets() {
         myTicketsList.push(ticket);
       }
       setMyTickets(myTicketsList);
-    })();
+  }
+
+  useEffect(() => {
+    fetchTickets();
   }, []);
+
+  async function handleCancelResale(ticketId) {
+    try {
+      const marketplace = await getMarketplaceContract();
+      const tx = await marketplace.cancelListing(ticketId);
+      await tx.wait();
+      await fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to cancel resale");
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
@@ -106,7 +131,10 @@ export default function MyTickets() {
                   }
                   {
                     ticket.status === "Resale" && (
-                      <button className="flex-1 bg-red-500 hover:bg-red-300 text-white font-bold py-3 rounded-xl transition">
+                      <button
+                        onClick={() => handleCancelResale(ticket.ticketId)}
+                        className="flex-1 bg-red-500 hover:bg-red-300 disabled:bg-red-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition"
+                      >
                         Cancel Resale
                       </button>
                     )
