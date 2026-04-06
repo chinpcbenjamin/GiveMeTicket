@@ -3,6 +3,7 @@
 // - else, show error alert
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
 import {
   getContract,
@@ -11,6 +12,7 @@ import {
 } from "../contract/useContract";
 
 export default function Marketplace() {
+  const navigate = useNavigate();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -109,7 +111,8 @@ export default function Marketplace() {
                         {listing.price}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <button className="inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition">
+                        <button className="inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition"
+                        onClick={() => navigate(`/resell-buy/${listing.tokenId}`)}>
                           Buy
                         </button>
                       </td>
