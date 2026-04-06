@@ -1,11 +1,5 @@
 # GiveMeTicket
 
-
-Frontend Dev Setup
-1. From root, `cd frontend`
-2. `npm install` to install node modules
-3. `npm run dev` to dev deploy
-
 Backend Dev Setup
 
 1. From root, stay in project directory
@@ -22,6 +16,11 @@ Deploy Contract
 1. Open a new terminal (from root)
 2. Run `npx hardhat run scripts/deploy.js --network localhost`
 3. Copy the deployed contract address from output
+
+Frontend Dev Setup
+1. From root, `cd frontend`
+2. `npm install` to install node modules
+3. `npm run dev` to dev deploy
 
 MetaMask Setup
 
