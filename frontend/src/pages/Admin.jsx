@@ -15,6 +15,7 @@ export default function Admin() {
     const [totalSupply, setTotalSupply] = useState("");
     const [facePrice, setFacePrice] = useState("");
     const [resaleCapBps, setResaleCapBps] = useState("");
+    const [resaleCommissionBps, setResaleCommissionBps] = useState("");
 
     async function handleConnectWallet() {
         try {
@@ -55,7 +56,8 @@ export default function Admin() {
                 Math.floor(new Date(eventDate).getTime() / 1000),
                 totalSupply,
                 ethers.parseEther(facePrice),
-                resaleCapBps * 100
+                resaleCapBps * 100,
+                resaleCommissionBps * 100
             );
 
             console.log("Transaction sent! Waiting for confirmation...");
@@ -169,6 +171,14 @@ export default function Admin() {
                                 className="border p-2 rounded"
                                 value={resaleCapBps}
                                 onChange={(e) => setResaleCapBps(e.target.value)}
+                            />
+
+                            <input
+                                type="number"
+                                placeholder="Resale Commission (0-100%). If you want to charge 10% commission, use '10'"
+                                className="border p-2 rounded"
+                                value={resaleCommissionBps}
+                                onChange={(e) => setResaleCommissionBps(e.target.value)}
                             />
 
                             <div className="flex gap-4 mt-4">

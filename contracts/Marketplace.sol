@@ -35,7 +35,7 @@ contract Marketplace is ReentrancyGuard {
         (uint256 eventId, , TicketingPlatform.TicketStatus ticketStatus) = ticketing.tickets(tokenId);
         require(ticketStatus == TicketingPlatform.TicketStatus.Valid, "Ticket not Valid");
 
-        (, , , , , , TicketingPlatform.EventStatus eventStatus) = ticketing.events(eventId);
+        (, , , , , , TicketingPlatform.EventStatus eventStatus, ) = ticketing.events(eventId);
         require(eventStatus == TicketingPlatform.EventStatus.Active,  "Event not active");
 
         require(price <= ticketing.getResaleCap(tokenId), "Price exceeds resale cap");

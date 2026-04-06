@@ -30,6 +30,7 @@ export default function Resell() {
       eventName: eventRaw[0],
       facePrice: ethers.formatEther(ticketRaw[1]),
       status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
+      resaleCommissionBps: Number(eventRaw[7]) / 100,
     };
     if (t.status !== "Valid") {
       alert("Ticket is not valid!");
@@ -91,6 +92,9 @@ export default function Resell() {
               </p>
               <p className="text-lg">
                 <span className="font-semibold">Status:</span> {ticket.status}
+              </p>
+              <p className="text-lg">
+                <span className="font-semibold">Resale Commission Fee:</span> {ticket.resaleCommissionBps}%
               </p>
             </div>
           </div>

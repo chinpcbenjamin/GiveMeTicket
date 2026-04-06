@@ -24,6 +24,7 @@ export default function Events() {
                 facePrice: ethers.formatEther(evtRaw[4]),
                 resaleCapBps: Number(evtRaw[5]),
                 status: ["Active", "Ended", "Cancelled"][Number(evtRaw[6])],
+                resaleCommissionBps: Number(evtRaw[7]),
             };
 
             allEvents.push(evt);

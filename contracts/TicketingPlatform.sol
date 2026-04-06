@@ -20,6 +20,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         uint256     facePrice;
         uint256     resaleCapBps; 
         EventStatus status;
+        uint256     resaleCommissionBps;
     }
 
     struct Ticket {
@@ -59,12 +60,15 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         uint256 date,
         uint256 totalSupply,
         uint256 facePrice,
-        uint256 resaleCapBps
+        uint256 resaleCapBps,
+        uint256 resaleCommissionBps
     ) external onlyOwner returns (uint256 eventId) {
         require(date > block.timestamp, "Event date must be in the future");
         require(totalSupply > 0,        "Total supply must be > 0");
         require(facePrice > 0,          "Face price must be > 0");
         require(resaleCapBps >= 10_000, "Resale cap must be >= 100% (10000 bps)");
+        require(resaleCommissionBps >= 0, "Resale commission must be >= 0");
+        require(resaleCommissionBps <= 10_000, "Resale commission must be <= 100% (10000 bps)");
 
         eventId = nextEventId++;
         events[eventId] = Event({
@@ -74,7 +78,8 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
             ticketsSold:  0,
             facePrice:    facePrice,
             resaleCapBps: resaleCapBps,
-            status:       EventStatus.Active
+            status:       EventStatus.Active,
+            resaleCommissionBps: resaleCommissionBps
         });
 
         emit EventCreated(eventId, name, facePrice);
