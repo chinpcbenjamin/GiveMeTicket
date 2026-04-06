@@ -25,7 +25,7 @@ contract Marketplace is ReentrancyGuard {
     event ResaleTicketSold(uint256 indexed tokenId, address indexed buyer, uint256 price);
     event ListingCancelled(uint256 indexed tokenId, address indexed seller);
 
-    constructor(address _ticketing) {
+    constructor(address payable _ticketing) {
         require(_ticketing != address(0), "Invalid ticketing address");
         ticketing = TicketingPlatform(_ticketing);
     }
@@ -55,7 +55,7 @@ contract Marketplace is ReentrancyGuard {
         emit TicketListed(tokenId, msg.sender, price);
     }
 
-    // Buys a resale-listed ticket. Transfers ETH to the seller and NFT to the buyer.
+    // Buys a resale-listed ticket. Splits ETH between seller and TicketingPlatform (commission).
     function buyResaleTicket(uint256 tokenId) external payable nonReentrant {
         ResaleListing memory listing = resaleListings[tokenId];
         require(listing.seller != address(0), "No active listing");
@@ -63,6 +63,11 @@ contract Marketplace is ReentrancyGuard {
 
         address seller = listing.seller;
         uint256 price  = listing.price;
+
+        (uint256 eventId, , ) = ticketing.tickets(tokenId);
+        (, , , , , , , uint256 commissionBps) = ticketing.events(eventId);
+        uint256 commission = price * commissionBps / 10000;
+        uint256 sellerProceeds = price - commission;
 
         // Effects (CEI)
         delete resaleListings[tokenId];
@@ -72,9 +77,15 @@ contract Marketplace is ReentrancyGuard {
         // Transfer NFT from escrow to buyer
         ticketing.transferFrom(address(this), msg.sender, tokenId);
 
-        // Transfer ETH to seller
-        (bool success, ) = seller.call{value: price}("");
-        require(success, "ETH transfer failed");
+        // Transfer commission to TicketingPlatform (withdrawable by owner)
+        if (commission > 0) {
+            (bool commissionOk, ) = address(ticketing).call{value: commission}("");
+            require(commissionOk, "Commission transfer failed");
+        }
+
+        // Transfer remaining ETH to seller
+        (bool sellerOk, ) = seller.call{value: sellerProceeds}("");
+        require(sellerOk, "Seller transfer failed");
 
         emit ResaleTicketSold(tokenId, msg.sender, price);
     }
