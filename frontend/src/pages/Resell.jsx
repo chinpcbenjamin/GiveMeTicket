@@ -24,11 +24,13 @@ export default function Resell() {
     const contract = await getContract();
     const ticketRaw = await contract.tickets(ticketId);
     const eventRaw = await contract.events(ticketRaw[0]);
+    const cap = await contract.getResaleCap(ticketId);
     const t = {
       ticketId: ticketId,
       eventId: ticketRaw[0],
       eventName: eventRaw[0],
       facePrice: ethers.formatEther(ticketRaw[1]),
+      currentResaleCap: ethers.formatEther(cap),
       status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
       resaleCommissionBps: Number(eventRaw[7]) / 100,
     };
@@ -104,6 +106,9 @@ export default function Resell() {
               </p>
               <p className="text-lg">
                 <span className="font-semibold">Resale Commission Fee:</span> {ticket.resaleCommissionBps}%
+              </p>
+              <p className="text-lg">
+                <span className="font-semibold">Current Resale Cap:</span> {ticket.currentResaleCap} ETH
               </p>
             </div>
           </div>

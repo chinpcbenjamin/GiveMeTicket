@@ -37,12 +37,14 @@ export default function Marketplace() {
 
         const ticketRaw = await ticketing.tickets(tokenId);
         const eventRaw = await ticketing.events(ticketRaw[0]);
+        const cap = await ticketing.getResaleCap(tokenId);
 
         active.push({
           tokenId: Number(tokenId),
           eventName: eventRaw[0],
           seller: listing.seller,
           price: ethers.formatEther(listing.price),
+          resaleCap: ethers.formatEther(cap),
         });
       }
 
@@ -90,6 +92,9 @@ export default function Marketplace() {
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       List Price (ETH)
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Current Resale Cap (ETH)
+                    </th>
                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Action
                     </th>
@@ -109,6 +114,9 @@ export default function Marketplace() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                         {listing.price}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {listing.resaleCap}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         <button className="inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition"

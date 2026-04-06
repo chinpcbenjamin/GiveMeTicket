@@ -21,6 +21,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         uint256     resaleCapBps; 
         EventStatus status;
         uint256     resaleCommissionBps;
+        uint256     createdAt;
     }
 
     struct Ticket {
@@ -79,7 +80,8 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
             facePrice:    facePrice,
             resaleCapBps: resaleCapBps,
             status:       EventStatus.Active,
-            resaleCommissionBps: resaleCommissionBps
+            resaleCommissionBps: resaleCommissionBps,
+            createdAt:    block.timestamp
         });
 
         emit EventCreated(eventId, name, facePrice);
@@ -155,10 +157,22 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         emit TicketMinted(tokenId, eventId, msg.sender);
     }
 
-    // Returns the resale price cap in wei (facePrice * resaleCapBps / 10000).
+    // Returns the dynamic resale price cap in wei.
+    // Uses quadratic decay: cap starts at resaleCapBps at event creation and
+    // decays to 100% (face price) by the event date.
     function getResaleCap(uint256 tokenId) external view override returns (uint256) {
         Ticket storage ticket = tickets[tokenId];
-        return ticket.facePrice * events[ticket.eventId].resaleCapBps / 10_000;
+        Event  storage evt    = events[ticket.eventId];
+
+        uint256 timeTotal = evt.date - evt.createdAt;
+        uint256 timeLeft  = block.timestamp >= evt.date
+            ? 0
+            : evt.date - block.timestamp;
+
+        uint256 markup = evt.resaleCapBps - 10_000;
+        uint256 currentCapBps = 10_000 + markup * timeLeft * timeLeft / (timeTotal * timeTotal);
+
+        return ticket.facePrice * currentCapBps / 10_000;
     }
 
     // Returns the face price paid at mint, in wei.
