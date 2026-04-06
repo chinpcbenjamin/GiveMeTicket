@@ -29,7 +29,16 @@ export default function Buy() {
         ticketsSold: Number(eventRaw[3]),
         status: ["Active", "Ended", "Cancelled"][Number(eventRaw[6])],
       };
-      console.log("Event data:", evt);
+      if (evt.status !== "Active") {
+        alert("This event is not active.");
+        navigate("/events");
+        return;
+      }
+      if (evt.totalSupply - evt.ticketsSold <= 0) {
+        alert("This event is sold out.");
+        navigate("/events");
+        return;
+      }
       setEvent(evt);
     } catch (err) {
       console.error("Failed to fetch event:", err);
@@ -52,6 +61,7 @@ export default function Buy() {
   const handleBuy = async() => {
     const ok = await buyTicket()
     if (ok) {
+      alert("Ticket purchased successfully!");
       navigate("/my-tickets")
     } else {
       alert("Failed to buy ticket")

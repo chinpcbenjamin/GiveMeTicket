@@ -16,8 +16,9 @@ export default function Resell() {
     if (ticket_owner.toLowerCase() !== currentUser.toLowerCase()) {
       alert("You do not own this ticket!");
       navigate("/my-tickets");
-      return;
+      return false;
     }
+    return true;
   }
 
   async function getTicket() {
@@ -50,7 +51,8 @@ export default function Resell() {
 
   useEffect(() => {
     (async () => {
-      await checkOwnership();
+      const isOwner = await checkOwnership();
+      if (!isOwner) return;
       await getTicket();
     })();
   }, [ticketId]);
@@ -70,7 +72,8 @@ export default function Resell() {
         alert(result.error);
         return;
       }
-      navigate("/marketplace");
+      alert("Ticket listed for resale!");
+      navigate("/my-tickets");
     } catch (error) {
       console.error(error);
       alert("Failed to list ticket for resale");

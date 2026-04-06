@@ -21,6 +21,12 @@ export default function ResellBuy() {
       const resaleListing = await marketplace.resaleListings(ticketId);
       const eventRaw = await ticketing.events(ticketRaw[0]);
 
+      if (resaleListing[0] === ethers.ZeroAddress) {
+        alert("This ticket is not listed for resale.");
+        navigate("/marketplace");
+        return;
+      }
+
       const cap = await ticketing.getResaleCap(ticketId);
 
       const t = {
@@ -58,6 +64,7 @@ export default function ResellBuy() {
     try {
       const ok = await buyResaleTicket();
       if (ok) {
+        alert("Resale ticket purchased successfully!");
         navigate("/my-tickets");
       } else {
         alert("Failed to buy ticket");
