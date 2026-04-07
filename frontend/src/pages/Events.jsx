@@ -44,7 +44,16 @@ export default function Events() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 py-16">
             <div className="max-w-6xl mx-auto">
-                <div className="mb-10">
+                <div className="mb-4">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
+                    >
+                        ← Back
+                    </button>
+                </div>
+
+                <div className="mb-6">
                     <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Official Sales</p>
                     <h1 className="text-4xl font-extrabold bg-gradient-to-r from-violet-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent">
                         Available Events
@@ -128,14 +137,7 @@ export default function Events() {
                     )}
                 </div>
 
-                <div className="mt-8">
-                    <button
-                        onClick={() => navigate("/")}
-                        className="py-3 px-6 rounded-xl font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 hover:text-white hover:bg-slate-700/40 transition-all duration-200 cursor-pointer"
-                    >
-                        Back to Home
-                    </button>
-                </div>
+                {/* Back to Home removed: top back arrow provides navigation */}
             </div>
         </div>
     );

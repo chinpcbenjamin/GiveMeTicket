@@ -83,6 +83,14 @@ export default function Resell() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex justify-center items-center px-4 py-16">
       <div className="w-full max-w-2xl">
+        <div className="mb-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
+          >
+            ← Back
+          </button>
+        </div>
         <div className="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
           <div className="bg-gradient-to-r from-amber-600/20 to-orange-600/20 border-b border-slate-700/50 p-8">
             <p className="text-xs uppercase tracking-widest text-amber-400 mb-2">Resale Listing</p>

@@ -13,6 +13,11 @@ import { ethers } from "ethers";
 export default function MyTickets() {
   const navigate = useNavigate();
   const [myTickets, setMyTickets] = useState([]);
+  const [showUseModal, setShowUseModal] = useState(false);
+  const [ticketToUse, setTicketToUse] = useState(null);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [countdown, setCountdown] = useState(8);
+  const intervalRef = null;
 
   async function fetchTickets() {
       const contract = await getContract();
@@ -22,6 +27,7 @@ export default function MyTickets() {
 
       const nextTokenId = Number(await contract.nextTokenId());
       const myTicketsList = [];
+      const usedIds = JSON.parse(localStorage.getItem("simUsedTickets") || "[]");
 
       for (let i = 0; i < nextTokenId; i++) {
         const owner = (await contract.ownerOf(i)).toLowerCase();
@@ -44,6 +50,9 @@ export default function MyTickets() {
             facePrice: ethers.formatEther(ticketRaw[1]),
             status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
         };
+        if (usedIds.includes(i)) {
+          ticket.status = "Used";
+        }
         myTicketsList.push(ticket);
       }
       setMyTickets(myTicketsList);
@@ -65,6 +74,47 @@ export default function MyTickets() {
     }
   }
 
+  function handleUseClick(ticket) {
+    setTicketToUse(ticket);
+    setShowUseModal(true);
+  }
+
+  function startUseSimulation() {
+    if (!ticketToUse) return;
+    setShowUseModal(false);
+    setCountdown(8);
+    setShowQRModal(true);
+  }
+
+  function cancelUse() {
+    setShowUseModal(false);
+    setTicketToUse(null);
+  }
+
+  useEffect(() => {
+    if (!showQRModal) return;
+    let t = countdown;
+    const id = setInterval(() => {
+      t -= 1;
+      setCountdown(t);
+        if (t <= 0) {
+        clearInterval(id);
+        // finalize simulated use
+        const idNum = ticketToUse?.ticketId;
+        if (typeof idNum === "number") {
+          const usedIds = JSON.parse(localStorage.getItem("simUsedTickets") || "[]");
+          if (!usedIds.includes(idNum)) usedIds.push(idNum);
+          localStorage.setItem("simUsedTickets", JSON.stringify(usedIds));
+          setMyTickets((prev) => prev.map(t => t.ticketId === idNum ? {...t, status: "Used"} : t));
+        }
+        setShowQRModal(false);
+        setTicketToUse(null);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showQRModal]);
+
   const statusStyles = {
     Valid: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
     Used: "bg-amber-500/20 text-amber-400 border-amber-500/30",
@@ -76,6 +126,14 @@ export default function MyTickets() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 py-16">
       <div className="max-w-6xl mx-auto">
         <div className="mb-10">
+          <div className="mb-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
+            >
+              ← Back
+            </button>
+          </div>
           <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Your Collection</p>
           <h1 className="text-4xl font-extrabold bg-gradient-to-r from-violet-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent">
             My Tickets
@@ -112,12 +170,20 @@ export default function MyTickets() {
 
                 <div className="flex gap-2 pt-1">
                   {ticket.status === "Valid" && (
-                    <button
-                      className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/30 transition-all duration-200 cursor-pointer text-sm"
-                      onClick={() => navigate(`/resell/${ticket.ticketId}`)}
-                    >
-                      Resell
-                    </button>
+                    <>
+                      <button
+                        className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/30 transition-all duration-200 cursor-pointer text-sm"
+                        onClick={() => navigate(`/resell/${ticket.ticketId}`)}
+                      >
+                        Resell
+                      </button>
+                      <button
+                        className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-900/30 transition-all duration-200 cursor-pointer text-sm"
+                        onClick={() => handleUseClick(ticket)}
+                      >
+                        Simulate Use
+                      </button>
+                    </>
                   )}
                   {ticket.status === "Resale" && (
                     <button
@@ -148,14 +214,59 @@ export default function MyTickets() {
           </div>
         )}
 
-        <div className="mt-8">
-          <button
-            onClick={() => navigate("/")}
-            className="py-3 px-6 rounded-xl font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 hover:text-white hover:bg-slate-700/40 transition-all duration-200 cursor-pointer"
-          >
-            Back to Home
-          </button>
-        </div>
+        {showUseModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50" onClick={cancelUse}></div>
+            <div className="relative bg-slate-800/90 border border-slate-700/50 rounded-2xl p-6 w-full max-w-md z-10">
+              <h3 className="text-lg font-bold text-white">Use Ticket — Simulation</h3>
+              <p className="text-slate-400 mt-2">Event: {ticketToUse?.eventName}</p>
+              <p className="text-slate-400">Ticket ID: #{ticketToUse?.ticketId}</p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={startUseSimulation}
+                  className="flex-1 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 transition-all duration-200"
+                >
+                  Start Simulation
+                </button>
+                <button
+                  onClick={cancelUse}
+                  className="flex-1 py-2 rounded-xl font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 hover:text-white transition-all duration-200"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mt-3">Note: This action is frontend-only and simulates an admin scanning a QR code.</p>
+            </div>
+          </div>
+        )}
+
+        {showQRModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/60"></div>
+            <div className="relative bg-slate-800/95 border border-slate-700/50 rounded-2xl p-6 w-full max-w-sm z-10 text-center">
+              <h3 className="text-lg font-bold text-white">Present this QR to Admin</h3>
+              <div className="mx-auto my-4 w-48 h-48 bg-white p-4 rounded-md inline-block">
+                <svg viewBox="0 0 120 120" className="w-full h-full">
+                  <rect x="0" y="0" width="120" height="120" fill="#ffffff" />
+                  <rect x="6" y="6" width="30" height="30" fill="#000" />
+                  <rect x="84" y="6" width="30" height="30" fill="#000" />
+                  <rect x="6" y="84" width="30" height="30" fill="#000" />
+                  {Array.from({ length: 20 }).map((_, idx) => {
+                    const x = 18 + (idx % 5) * 18;
+                    const y = 18 + Math.floor(idx / 5) * 18;
+                    const fill = ((ticketToUse?.ticketId ?? 0) + idx) % 3 === 0 ? '#000' : 'none';
+                    return <rect key={idx} x={x} y={y} width="12" height="12" fill={fill} />;
+                  })}
+                </svg>
+              </div>
+              <p className="text-slate-300">Ticket #{ticketToUse?.ticketId}</p>
+              <p className="text-sm text-slate-400 mt-2">Waiting for admin scan... <span className="font-mono">{countdown}s</span></p>
+              <p className="text-xs text-slate-500 mt-3">Simulation will complete automatically when the timer reaches zero.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Back to Home removed: top back arrow provides navigation */}
       </div>
     </div>
   );

@@ -94,7 +94,16 @@ export default function Admin() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col items-center px-4 py-16">
-            <div className="text-center mb-12">
+            <div className="w-full flex justify-start mb-4">
+                <button
+                    onClick={() => navigate(-1)}
+                    className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
+                >
+                    ← Back
+                </button>
+            </div>
+
+            <div className="text-center mb-8">
                 <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Administration</p>
                 <h1 className="text-5xl font-extrabold tracking-tight bg-gradient-to-r from-rose-400 via-pink-400 to-violet-400 bg-clip-text text-transparent">
                     Admin Panel

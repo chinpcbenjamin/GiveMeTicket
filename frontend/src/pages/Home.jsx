@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { connectWallet } from "../contract/useContract";
 
@@ -12,11 +12,18 @@ export default function Home() {
         try {
         const connected = await connectWallet();
         setAccount(connected);
+        localStorage.setItem("connectedAccount", connected);
         console.log("Connected wallet:", connected);
         } catch (err) {
         console.error("Failed to connect wallet:", err);
         }
     }
+
+    // restore connected account if previously connected
+    useEffect(() => {
+        const saved = localStorage.getItem("connectedAccount");
+        if (saved) setAccount(saved);
+    }, []);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col items-center justify-center px-4 py-16">
