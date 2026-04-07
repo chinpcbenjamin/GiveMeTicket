@@ -30,22 +30,27 @@ export default function Marketplace() {
       const active = [];
 
       for (let i = 0; i < count; i++) {
-        const tokenId = await marketplace.getActiveListingAt(i);
-        const listing = await marketplace.resaleListings(tokenId);
+        try {
+          const tokenId = await marketplace.getActiveListingAt(i);
+          const listing = await marketplace.resaleListings(tokenId);
 
-        if (listing.seller.toLowerCase() === currentUser) continue;
+          if (listing.seller.toLowerCase() === currentUser) continue;
 
-        const ticketRaw = await ticketing.tickets(tokenId);
-        const eventRaw = await ticketing.events(ticketRaw[0]);
-        const cap = await ticketing.getResaleCap(tokenId);
+          const ticketRaw = await ticketing.tickets(tokenId);
+          const eventRaw = await ticketing.events(ticketRaw[0]);
+          const cap = await ticketing.getResaleCap(tokenId);
 
-        active.push({
-          tokenId: Number(tokenId),
-          eventName: eventRaw[0],
-          seller: listing.seller,
-          price: ethers.formatEther(listing.price),
-          resaleCap: ethers.formatEther(cap),
-        });
+          active.push({
+            tokenId: Number(tokenId),
+            eventName: eventRaw[0],
+            seller: listing.seller,
+            price: ethers.formatEther(listing.price),
+            resaleCap: ethers.formatEther(cap),
+          });
+        } catch (err) {
+          console.warn("Skipping listing due to error:", err);
+          continue;
+        }
       }
 
       setListings(active);

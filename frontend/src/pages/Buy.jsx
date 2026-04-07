@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
 import { getContract } from "../contract/useContract";
+import { useAccount } from "../contract/AccountContext.jsx";
 
 export default function Buy() {
   const navigate = useNavigate();
@@ -16,9 +17,13 @@ export default function Buy() {
   }, [eventId]);
 
   const [event, setEvent] = useState(null);
+  const [ownerAddress, setOwnerAddress] = useState(null);
+  const { account, connectWallet } = useAccount();
   async function viewEvent(eventId) {
     try {
       const contract = await getContract();
+      const owner = await contract.owner();
+      setOwnerAddress(owner);
       const eventRaw = await contract.events(eventId);
       
       const evt = {
@@ -48,6 +53,14 @@ export default function Buy() {
   async function buyTicket() {
     try {
       const contract = await getContract()
+      // extra frontend guard: prevent organizer (owner) from buying
+      const currentUser = account || (await connectWallet());
+      const owner = await contract.owner();
+      if (owner && currentUser && owner.toLowerCase() === currentUser.toLowerCase()) {
+        alert("Organizers cannot purchase tickets for their own events.");
+        return false;
+      }
+
       const tx = await contract.buyTicket(eventId, { value: ethers.parseEther(event.facePrice) })
       await tx.wait()
       console.log("Ticket bought!")
@@ -103,9 +116,10 @@ export default function Buy() {
 
             <button
               onClick={handleBuy}
-              className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/40 transition-all duration-200 cursor-pointer"
+              disabled={Boolean(ownerAddress && account && ownerAddress.toLowerCase() === account.toLowerCase())}
+              className={`w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/40 transition-all duration-200 ${ownerAddress && account && ownerAddress.toLowerCase() === account.toLowerCase() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              Buy Now
+              {ownerAddress && account && ownerAddress.toLowerCase() === account.toLowerCase() ? 'Organizers cannot buy' : 'Buy Now'}
             </button>
 
             <button

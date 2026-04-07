@@ -7,7 +7,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getContract, getMarketplaceContract, connectWallet } from "../contract/useContract";
-import { MARKETPLACE_ADDRESS } from "../contract/config";
+import { getMarketplaceAddress } from "../contract/config";
 import { ethers } from "ethers";
 
 export default function MyTickets() {
@@ -23,37 +23,43 @@ export default function MyTickets() {
       const contract = await getContract();
       const marketplace = await getMarketplaceContract();
       const currentUser = (await connectWallet()).toLowerCase();
-      const marketplaceLower = MARKETPLACE_ADDRESS.toLowerCase();
+      const marketplaceAddr = await getMarketplaceAddress();
+      const marketplaceLower = marketplaceAddr.toLowerCase();
 
       const nextTokenId = Number(await contract.nextTokenId());
       const myTicketsList = [];
       const usedIds = JSON.parse(localStorage.getItem("simUsedTickets") || "[]");
 
       for (let i = 0; i < nextTokenId; i++) {
-        const owner = (await contract.ownerOf(i)).toLowerCase();
+            try {
+              const owner = (await contract.ownerOf(i)).toLowerCase();
 
-        let isMine = owner === currentUser;
+              let isMine = owner === currentUser;
 
-        if (!isMine && owner === marketplaceLower) {
-          const listing = await marketplace.resaleListings(i);
-          isMine = listing.seller.toLowerCase() === currentUser;
-        }
+              if (!isMine && owner === marketplaceLower) {
+                const listing = await marketplace.resaleListings(i);
+                isMine = listing.seller.toLowerCase() === currentUser;
+              }
 
-        if (!isMine) continue;
+              if (!isMine) continue;
 
-        const ticketRaw = await contract.tickets(i);
-        const eventRaw = await contract.events(ticketRaw[0]);
-        const ticket = {
-            ticketId: i,
-            eventId: ticketRaw[0],
-            eventName: eventRaw[0],
-            facePrice: ethers.formatEther(ticketRaw[1]),
-            status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
-        };
-        if (usedIds.includes(i)) {
-          ticket.status = "Used";
-        }
-        myTicketsList.push(ticket);
+              const ticketRaw = await contract.tickets(i);
+              const eventRaw = await contract.events(ticketRaw[0]);
+              const ticket = {
+                ticketId: i,
+                eventId: ticketRaw[0],
+                eventName: eventRaw[0],
+                facePrice: ethers.formatEther(ticketRaw[1]),
+                status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
+              };
+              if (usedIds.includes(i)) {
+                ticket.status = "Used";
+              }
+              myTicketsList.push(ticket);
+            } catch (err) {
+              console.warn(`Skipping token ${i} due to error:`, err);
+              continue;
+            }
       }
       setMyTickets(myTicketsList);
   }

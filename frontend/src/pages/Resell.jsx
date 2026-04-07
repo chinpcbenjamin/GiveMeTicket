@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getContract, connectWallet, listTicketForResale } from "../contract/useContract";
+import { useAccount } from "../contract/AccountContext.jsx";
 import { ethers } from "ethers";
 
 export default function Resell() {
@@ -8,17 +9,40 @@ export default function Resell() {
   const { ticketId } = useParams();
   const [ticket, setTicket] = useState(null);
   const [resellPrice, setResellPrice] = useState(0);
+  const { account, connectWallet } = useAccount();
 
   async function checkOwnership() {
     const contract = await getContract();
-    const currentUser = await connectWallet();
-    const ticket_owner = await contract.ownerOf(ticketId);
-    if (ticket_owner.toLowerCase() !== currentUser.toLowerCase()) {
-      alert("You do not own this ticket!");
+    try {
+      let currentUser = account;
+      if (!currentUser) {
+        currentUser = await connectWallet();
+      }
+      if (!currentUser) {
+        alert("Please connect your wallet to verify ownership");
+        navigate("/my-tickets");
+        return false;
+      }
+
+      const ticket_owner = await contract.ownerOf(ticketId);
+      if (!ticket_owner || ticket_owner.toLowerCase() !== currentUser.toLowerCase()) {
+        alert("You do not own this ticket!");
+        navigate("/my-tickets");
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn("Ownership check failed:", err);
+      // if ownerOf reverts with invalid token id, give clearer message
+      const reason = err?.reason || err?.message || String(err);
+      if (reason.includes("invalid token id") || reason.toLowerCase().includes("invalid token")) {
+        alert("Ticket does not exist or has been burned");
+      } else {
+        alert("Unable to verify ticket ownership");
+      }
       navigate("/my-tickets");
       return false;
     }
-    return true;
   }
 
   async function getTicket() {

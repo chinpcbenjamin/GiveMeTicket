@@ -139,6 +139,8 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         returns (uint256 tokenId)
     {
         Event storage evt = events[eventId];
+        // Prevent the contract owner (event organizer) from buying their own tickets
+        require(msg.sender != owner(), "Organizer cannot buy tickets");
 
         require(evt.status == EventStatus.Active, "Event is not active");
         require(block.timestamp < evt.date,        "Event has already started");

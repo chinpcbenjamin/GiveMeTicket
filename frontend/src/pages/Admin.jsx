@@ -1,23 +1,40 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
-import { connectWallet, getContract, getProvider } from "../contract/useContract";
-import { TICKETING_PLATFORM_ADDRESS } from "../contract/config";
+import { getContract, getProvider } from "../contract/useContract";
+import { getTicketingPlatformAddress } from "../contract/config";
+import { useAccount } from "../contract/AccountContext.jsx";
 
 
 export default function Admin() {
     const navigate = useNavigate();
 
-    const [account, setAccount] = useState(null);
+    const { account, connectWallet } = useAccount();
     const [contractBalance, setContractBalance] = useState(null);
+    const [ownerAddressState, setOwnerAddressState] = useState(null);
+    const [ownerWalletBalance, setOwnerWalletBalance] = useState(null);
 
     async function fetchBalance() {
         try {
             const provider = await getProvider();
-            const balance = await provider.getBalance(TICKETING_PLATFORM_ADDRESS);
+            const addr = await getTicketingPlatformAddress();
+            const balance = await provider.getBalance(addr);
             setContractBalance(ethers.formatEther(balance));
         } catch (err) {
             console.error("Failed to fetch balance:", err);
+        }
+    }
+
+    async function fetchOwner() {
+        try {
+            const contract = await getContract();
+            const owner = await contract.owner();
+            setOwnerAddressState(owner);
+            const provider = await getProvider();
+            const ownerBal = await provider.getBalance(owner);
+            setOwnerWalletBalance(ethers.formatEther(ownerBal));
+        } catch (err) {
+            console.warn('Failed to fetch owner:', err);
         }
     }
 
@@ -29,15 +46,7 @@ export default function Admin() {
     const [resaleCapBps, setResaleCapBps] = useState("");
     const [resaleCommissionBps, setResaleCommissionBps] = useState("");
 
-    async function handleConnectWallet() {
-        try {
-            const connected = await connectWallet();
-            setAccount(connected);
-            await fetchBalance();
-        } catch (err) {
-            console.error("Failed to connect wallet:", err);
-        }
-    }
+    // connectWallet provided by AccountContext
 
     async function getOwnerAddress() {
         try {
@@ -55,14 +64,23 @@ export default function Admin() {
             const tx = await contract.withdraw();
             await tx.wait();
             await fetchBalance();
+            await fetchOwner();
         } catch (err) {
-            alert("You are not the owner!");
-            console.error(err);
+            // surface detailed revert reason when possible
+            const reason = err?.reason || err?.data?.message || err?.message || String(err);
+            alert(`Withdraw failed: ${reason}`);
+            console.error('Withdraw failed:', err);
         }
     }
 
     async function createEvent() {
         try {
+            // validate inputs
+            if (Number(resaleCommissionBps) >= 100) {
+                alert("Resale commission must be less than 100% — seller should receive part of resale proceeds.");
+                return false;
+            }
+
             const contract = await getContract();
             const tx = await contract.createEvent(
                 eventName, 
@@ -83,14 +101,20 @@ export default function Admin() {
     }
 
     const handleCreateEvent = async() => {
-        const ok = await createEvent()
+        const ok = await createEvent();
         if (ok) {
             alert("Event created successfully!");
-            navigate("/events")
+            navigate("/events");
         } else {
-            alert("You are not the owner!")
+            alert("You are not the owner!");
         }
     };
+
+    useEffect(() => {
+        if (!account) return;
+        fetchBalance();
+        fetchOwner();
+    }, [account]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col items-center px-4 py-16">
@@ -118,10 +142,24 @@ export default function Admin() {
                     </div>
                 )}
 
+                {ownerAddressState && (
+                    <div className="w-full bg-slate-800/60 backdrop-blur-sm border border-emerald-700/30 rounded-2xl px-6 py-4 text-center">
+                        <p className="text-xs uppercase tracking-widest text-emerald-500 mb-1">Contract Owner</p>
+                        <p className="text-sm text-emerald-300 font-mono truncate">{ownerAddressState}</p>
+                    </div>
+                )}
+
                 {account && contractBalance !== null && (
                     <div className="w-full bg-slate-800/60 backdrop-blur-sm border border-emerald-700/30 rounded-2xl px-6 py-4 text-center">
                         <p className="text-xs uppercase tracking-widest text-emerald-500 mb-1">Contract Balance</p>
                         <p className="text-2xl text-emerald-400 font-bold">{contractBalance} <span className="text-sm text-emerald-600">ETH</span></p>
+                    </div>
+                )}
+
+                {ownerAddressState && ownerWalletBalance !== null && (
+                    <div className="w-full bg-slate-800/60 backdrop-blur-sm border border-blue-700/30 rounded-2xl px-6 py-4 text-center">
+                        <p className="text-xs uppercase tracking-widest text-blue-400 mb-1">Owner Wallet Balance</p>
+                        <p className="text-2xl text-blue-300 font-bold">{ownerWalletBalance} <span className="text-sm text-blue-500">ETH</span></p>
                     </div>
                 )}
 
@@ -136,8 +174,9 @@ export default function Admin() {
 
                 {account && (
                     <button
-                        className="w-full py-4 rounded-xl font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-900/30 transition-all duration-200 cursor-pointer"
+                        className={`w-full py-4 rounded-xl font-semibold text-white ${ownerAddressState && account && ownerAddressState.toLowerCase() === account.toLowerCase() ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-900/30' : 'bg-slate-700/40 cursor-not-allowed opacity-60'}`}
                         onClick={() => withdrawMoney()}
+                        disabled={!(ownerAddressState && account && ownerAddressState.toLowerCase() === account.toLowerCase())}
                     >
                         Withdraw Funds
                     </button>
@@ -155,7 +194,7 @@ export default function Admin() {
                 {!account && (
                     <button
                         className="w-full py-4 rounded-xl font-bold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/30 transition-all duration-200 cursor-pointer text-lg"
-                        onClick={handleConnectWallet}
+                        onClick={connectWallet}
                     >
                         Connect Wallet
                     </button>

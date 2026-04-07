@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { getContract } from "../contract/useContract";
 import { useNavigate } from "react-router-dom";
+import { useAccount } from "../contract/AccountContext.jsx";
 
 export default function Events() {
     const navigate = useNavigate();
     const [events, setEvents] = useState([]);
+    const [ownerAddress, setOwnerAddress] = useState(null);
+    const { account, connectWallet } = useAccount();
 
     async function getAllEvents() {
         const contract = await getContract();
@@ -38,6 +41,13 @@ export default function Events() {
         (async () => {
         const evts = await getAllEvents();
         setEvents(evts);
+        try {
+            const contract = await getContract();
+            const owner = await contract.owner();
+            setOwnerAddress(owner);
+        } catch (err) {
+            console.warn("Failed to fetch contract owner:", err);
+        }
         })();
     }, []);
 
@@ -117,11 +127,27 @@ export default function Events() {
                                             <span className="text-slate-500 font-medium">Unavailable</span>
                                         )}
                                         {listing.status === "Active" && listing.totalSupply - listing.ticketsSold > 0 && (
-                                            <button
-                                                className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/30 transition-all duration-200 cursor-pointer text-sm"
-                                                onClick={() => navigate(`/buy/${listing.eventId}`)}>
-                                                Buy Ticket
-                                            </button>
+                                            (() => {
+                                                const isOrganizer = ownerAddress && account && ownerAddress.toLowerCase() === account.toLowerCase();
+                                                return (
+                                                    <button
+                                                        disabled={isOrganizer}
+                                                        className={`px-5 py-2 rounded-xl font-semibold text-white ${isOrganizer ? 'bg-slate-600/40 cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/30'} transition-all duration-200 text-sm`}
+                                                        onClick={async () => {
+                                                            if (isOrganizer) {
+                                                                // ensure user is warned and doesn't navigate
+                                                                alert('Organizers cannot purchase tickets for their own events.');
+                                                                return;
+                                                            }
+                                                            // ensure wallet connected
+                                                            if (!account) await connectWallet();
+                                                            navigate(`/buy/${listing.eventId}`);
+                                                        }}
+                                                    >
+                                                        {isOrganizer ? 'Organizers cannot buy' : 'Buy Ticket'}
+                                                    </button>
+                                                );
+                                            })()
                                         )}
                                     </td>
                                 </tr>

@@ -22,7 +22,7 @@ contract Marketplace is ReentrancyGuard {
     EnumerableSet.UintSet private _activeListings;
 
     event TicketListed(uint256 indexed tokenId, address indexed seller, uint256 price);
-    event ResaleTicketSold(uint256 indexed tokenId, address indexed buyer, uint256 price);
+    event ResaleTicketSold(uint256 indexed tokenId, address indexed buyer, uint256 price, uint256 commission, uint256 sellerProceeds);
     event ListingCancelled(uint256 indexed tokenId, address indexed seller);
 
     constructor(address payable _ticketing) {
@@ -45,6 +45,9 @@ contract Marketplace is ReentrancyGuard {
 
         // Transfer NFT into escrow (requires prior approval from seller)
         ticketing.transferFrom(msg.sender, address(this), tokenId);
+
+        // sanity: ensure escrow succeeded
+        require(ticketing.ownerOf(tokenId) == address(this), "Escrow transfer failed");
 
         // Mark ticket as Resale in TicketingPlatform
         ticketing.setTicketToResale(tokenId);
@@ -69,6 +72,9 @@ contract Marketplace is ReentrancyGuard {
         uint256 commission = price * commissionBps / 10000;
         uint256 sellerProceeds = price - commission;
 
+        // sanity check
+        require(commission + sellerProceeds == price, "Math error in payout split");
+
         // Effects (CEI)
         delete resaleListings[tokenId];
         _activeListings.remove(tokenId);
@@ -76,6 +82,9 @@ contract Marketplace is ReentrancyGuard {
 
         // Transfer NFT from escrow to buyer
         ticketing.transferFrom(address(this), msg.sender, tokenId);
+
+        // sanity: ensure transfer to buyer succeeded
+        require(ticketing.ownerOf(tokenId) == msg.sender, "NFT transfer to buyer failed");
 
         // Transfer commission to TicketingPlatform (withdrawable by owner)
         if (commission > 0) {
@@ -87,7 +96,7 @@ contract Marketplace is ReentrancyGuard {
         (bool sellerOk, ) = seller.call{value: sellerProceeds}("");
         require(sellerOk, "Seller transfer failed");
 
-        emit ResaleTicketSold(tokenId, msg.sender, price);
+        emit ResaleTicketSold(tokenId, msg.sender, price, commission, sellerProceeds);
     }
 
     // Cancels a listing and returns the ticket from escrow to the seller.
