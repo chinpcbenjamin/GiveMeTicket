@@ -43,17 +43,14 @@ contract Marketplace is ReentrancyGuard {
 
         require(price <= ticketing.getResaleCap(tokenId), "Price exceeds resale cap");
 
-        // Transfer NFT into escrow (requires prior approval from seller)
-        ticketing.transferFrom(msg.sender, address(this), tokenId);
-
-        // sanity: ensure escrow succeeded
-        require(ticketing.ownerOf(tokenId) == address(this), "Escrow transfer failed");
-
-        // Mark ticket as Resale in TicketingPlatform
-        ticketing.setTicketToResale(tokenId);
-
+        // Effects
         resaleListings[tokenId] = ResaleListing({ seller: msg.sender, price: price });
         _activeListings.add(tokenId);
+
+        // Interactions
+        ticketing.transferFrom(msg.sender, address(this), tokenId);
+        require(ticketing.ownerOf(tokenId) == address(this), "Escrow transfer failed");
+        ticketing.setTicketToResale(tokenId);
 
         emit TicketListed(tokenId, msg.sender, price);
     }
@@ -75,24 +72,20 @@ contract Marketplace is ReentrancyGuard {
         // sanity check
         require(commission + sellerProceeds == price, "Math error in payout split");
 
-        // Effects (CEI)
+        // Effects
         delete resaleListings[tokenId];
         _activeListings.remove(tokenId);
+
+        // Interactions
         ticketing.setTicketToValid(tokenId);
-
-        // Transfer NFT from escrow to buyer
         ticketing.transferFrom(address(this), msg.sender, tokenId);
-
-        // sanity: ensure transfer to buyer succeeded
         require(ticketing.ownerOf(tokenId) == msg.sender, "NFT transfer to buyer failed");
 
-        // Transfer commission to TicketingPlatform (withdrawable by owner)
         if (commission > 0) {
             (bool commissionOk, ) = address(ticketing).call{value: commission}("");
             require(commissionOk, "Commission transfer failed");
         }
 
-        // Transfer remaining ETH to seller
         (bool sellerOk, ) = seller.call{value: sellerProceeds}("");
         require(sellerOk, "Seller transfer failed");
 
@@ -104,12 +97,12 @@ contract Marketplace is ReentrancyGuard {
         ResaleListing memory listing = resaleListings[tokenId];
         require(listing.seller == msg.sender, "Not the seller");
 
-        // Effects (CEI)
+        // Effects
         delete resaleListings[tokenId];
         _activeListings.remove(tokenId);
-        ticketing.setTicketToValid(tokenId);
 
-        // Return NFT from escrow to seller
+        // Interactions
+        ticketing.setTicketToValid(tokenId);
         ticketing.transferFrom(address(this), msg.sender, tokenId);
 
         emit ListingCancelled(tokenId, msg.sender);
