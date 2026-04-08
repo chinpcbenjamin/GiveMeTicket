@@ -1,9 +1,9 @@
 import { ethers } from "ethers";
 import {
   TICKETING_PLATFORM_ABI,
-  TICKETING_PLATFORM_ADDRESS,
+  getTicketingPlatformAddress,
   MARKETPLACE_ABI,
-  MARKETPLACE_ADDRESS,
+  getMarketplaceAddress,
 } from "./config";
 const HARDHAT_CHAIN_ID = "0x7a69"; // 31337 in hex
 
@@ -53,13 +53,15 @@ export const useContract = () => {
   const getContract = async () => {
     await ensureCorrectNetwork();
     const signer = await getSigner();
-    return new ethers.Contract(TICKETING_PLATFORM_ADDRESS, TICKETING_PLATFORM_ABI, signer);
+    const addr = await getTicketingPlatformAddress();
+    return new ethers.Contract(addr, TICKETING_PLATFORM_ABI, signer);
   };
 
   const getMarketplaceContract = async () => {
     await ensureCorrectNetwork();
     const signer = await getSigner();
-    return new ethers.Contract(MARKETPLACE_ADDRESS, MARKETPLACE_ABI, signer);
+    const addr = await getMarketplaceAddress();
+    return new ethers.Contract(addr, MARKETPLACE_ABI, signer);
   };
 
   const formatError = (error) => {
@@ -97,9 +99,10 @@ export const useContract = () => {
       const owner = await signer.getAddress();
 
       const approvedAddr = await ticketing.getApproved(ticketId);
-      const approvedAll = await ticketing.isApprovedForAll(owner, MARKETPLACE_ADDRESS);
-      if (!approvedAll && approvedAddr.toLowerCase() !== MARKETPLACE_ADDRESS.toLowerCase()) {
-        const approveTx = await ticketing.approve(MARKETPLACE_ADDRESS, ticketId);
+      const marketplaceAddr = await getMarketplaceAddress();
+      const approvedAll = await ticketing.isApprovedForAll(owner, marketplaceAddr);
+      if (!approvedAll && approvedAddr.toLowerCase() !== marketplaceAddr.toLowerCase()) {
+        const approveTx = await ticketing.approve(marketplaceAddr, ticketId);
         await approveTx.wait();
       }
 

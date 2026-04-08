@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
 import { getContract } from "../contract/useContract";
+import { useAccount } from "../contract/AccountContext.jsx";
 
 export default function Buy() {
   const navigate = useNavigate();
@@ -16,9 +17,13 @@ export default function Buy() {
   }, [eventId]);
 
   const [event, setEvent] = useState(null);
+  const [ownerAddress, setOwnerAddress] = useState(null);
+  const { account, connectWallet } = useAccount();
   async function viewEvent(eventId) {
     try {
       const contract = await getContract();
+      const owner = await contract.owner();
+      setOwnerAddress(owner);
       const eventRaw = await contract.events(eventId);
       
       const evt = {
@@ -48,6 +53,14 @@ export default function Buy() {
   async function buyTicket() {
     try {
       const contract = await getContract()
+      // extra frontend guard: prevent organizer (owner) from buying
+      const currentUser = account || (await connectWallet());
+      const owner = await contract.owner();
+      if (owner && currentUser && owner.toLowerCase() === currentUser.toLowerCase()) {
+        alert("Organizers cannot purchase tickets for their own events.");
+        return false;
+      }
+
       const tx = await contract.buyTicket(eventId, { value: ethers.parseEther(event.facePrice) })
       await tx.wait()
       console.log("Ticket bought!")
@@ -69,43 +82,51 @@ export default function Buy() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex justify-center items-center px-4 py-16">
       {event && (
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-lg overflow-hidden">
-        <div className="bg-black p-8">
-          <h1 className="text-4xl text-white font-extrabold mb-2">Buy Ticket</h1>
-          <p className="text-gray-300">
-            Secure your ticket for the event through GiveMeTicket.
-          </p>
+      <div className="w-full max-w-2xl">
+        <div className="mb-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
+          >
+            ← Back
+          </button>
         </div>
-
-        <div className="grid md:grid-cols-2 gap-8 p-8">
-          <div className="bg-gray-200 rounded-2xl h-72 flex items-center justify-center text-gray-500 text-lg font-semibold">
-            Event Banner Placeholder
+        <div className="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="bg-gradient-to-r from-violet-600/20 to-indigo-600/20 border-b border-slate-700/50 p-8">
+            <p className="text-xs uppercase tracking-widest text-violet-400 mb-2">Official Ticket</p>
+            <h1 className="text-3xl text-white font-extrabold">{event.eventName}</h1>
+            <p className="text-slate-400 mt-1">Secure your spot through GiveMeTicket</p>
           </div>
 
-          <div className="flex flex-col gap-5">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900">
-                {event.name}
-              </h2>
+          <div className="p-8 space-y-6">
+            <div className="bg-slate-900/60 rounded-xl p-5 border border-slate-700/30">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Price per Ticket</p>
+                  <p className="text-2xl font-bold text-white">{event.facePrice} <span className="text-sm text-slate-400">ETH</span></p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Tickets Remaining</p>
+                  <p className="text-2xl font-bold text-emerald-400">{event.totalSupply - event.ticketsSold}</p>
+                </div>
+              </div>
             </div>
-
-            <div className="bg-gray-100 rounded-2xl p-5 space-y-3">
-              <p className="text-lg">
-                <span className="font-semibold">Price per Ticket:</span> {event.facePrice} ETH
-              </p>
-              <p className="text-lg">
-                <span className="font-semibold">Tickets Left:</span> {event.totalSupply - event.ticketsSold}
-              </p>
-            </div>
-
 
             <button
               onClick={handleBuy}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 rounded-2xl transition"
+              disabled={Boolean(ownerAddress && account && ownerAddress.toLowerCase() === account.toLowerCase())}
+              className={`w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/40 transition-all duration-200 ${ownerAddress && account && ownerAddress.toLowerCase() === account.toLowerCase() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              Buy Now
+              {ownerAddress && account && ownerAddress.toLowerCase() === account.toLowerCase() ? 'Organizers cannot buy' : 'Buy Now'}
+            </button>
+
+            <button
+              onClick={() => navigate("/events")}
+              className="w-full py-3 rounded-xl font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 hover:text-white hover:bg-slate-700/40 transition-all duration-200 cursor-pointer"
+            >
+              Back to Events
             </button>
           </div>
         </div>

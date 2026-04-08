@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getContract, connectWallet, listTicketForResale } from "../contract/useContract";
+import { useAccount } from "../contract/AccountContext.jsx";
 import { ethers } from "ethers";
 
 export default function Resell() {
@@ -8,17 +9,40 @@ export default function Resell() {
   const { ticketId } = useParams();
   const [ticket, setTicket] = useState(null);
   const [resellPrice, setResellPrice] = useState(0);
+  const { account, connectWallet } = useAccount();
 
   async function checkOwnership() {
     const contract = await getContract();
-    const currentUser = await connectWallet();
-    const ticket_owner = await contract.ownerOf(ticketId);
-    if (ticket_owner.toLowerCase() !== currentUser.toLowerCase()) {
-      alert("You do not own this ticket!");
+    try {
+      let currentUser = account;
+      if (!currentUser) {
+        currentUser = await connectWallet();
+      }
+      if (!currentUser) {
+        alert("Please connect your wallet to verify ownership");
+        navigate("/my-tickets");
+        return false;
+      }
+
+      const ticket_owner = await contract.ownerOf(ticketId);
+      if (!ticket_owner || ticket_owner.toLowerCase() !== currentUser.toLowerCase()) {
+        alert("You do not own this ticket!");
+        navigate("/my-tickets");
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn("Ownership check failed:", err);
+      // if ownerOf reverts with invalid token id, give clearer message
+      const reason = err?.reason || err?.message || String(err);
+      if (reason.includes("invalid token id") || reason.toLowerCase().includes("invalid token")) {
+        alert("Ticket does not exist or has been burned");
+      } else {
+        alert("Unable to verify ticket ownership");
+      }
       navigate("/my-tickets");
       return false;
     }
-    return true;
   }
 
   async function getTicket() {
@@ -81,46 +105,58 @@ export default function Resell() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-lg overflow-hidden">
-        <div className="bg-black text-white p-8">
-          <h1 className="text-4xl font-extrabold mb-2">Resell Ticket</h1>
-          <p className="text-gray-300">
-            List your owned ticket on the marketplace for resale.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex justify-center items-center px-4 py-16">
+      <div className="w-full max-w-2xl">
+        <div className="mb-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
+          >
+            ← Back
+          </button>
         </div>
-        {ticket && (
-        <div className="grid md:grid-cols-2 gap-8 p-8">
-          <div className="bg-gray-100 rounded-2xl p-6 space-y-5">
-
-            <div className="bg-white rounded-2xl p-5 space-y-3 shadow-sm">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {ticket.eventName}
-              </h2>
-              <p className="text-lg">
-                <span className="font-semibold">Ticket ID:</span> #{ticket.ticketId}
-              </p>
-              <p className="text-lg">
-                <span className="font-semibold">Original Price:</span>{" "}
-                {ticket.facePrice} ETH
-              </p>
-              <p className="text-lg">
-                <span className="font-semibold">Status:</span> {ticket.status}
-              </p>
-              <p className="text-lg">
-                <span className="font-semibold">Resale Commission Fee:</span> {ticket.resaleCommissionBps}%
-              </p>
-              <p className="text-lg">
-                <span className="font-semibold">Current Resale Cap:</span> {ticket.currentResaleCap} ETH
-              </p>
-            </div>
+        <div className="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="bg-gradient-to-r from-amber-600/20 to-orange-600/20 border-b border-slate-700/50 p-8">
+            <p className="text-xs uppercase tracking-widest text-amber-400 mb-2">Resale Listing</p>
+            <h1 className="text-3xl text-white font-extrabold">Resell Ticket</h1>
+            <p className="text-slate-400 mt-1">List your ticket on the marketplace</p>
           </div>
 
-          <div className="flex flex-col gap-5">
-            <div className="bg-gray-100 rounded-2xl p-5">
-              <label className="block text-lg font-semibold mb-3">
-                Set Resale Price
-              </label>
+          {ticket && (
+          <div className="p-8 space-y-6">
+            <div className="bg-slate-900/60 rounded-xl p-5 border border-slate-700/30 space-y-3">
+              <h2 className="text-xl font-bold text-white mb-3">{ticket.eventName}</h2>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Ticket ID</p>
+                  <p className="text-lg font-semibold text-slate-300">#{ticket.ticketId}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Status</p>
+                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400">{ticket.status}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Original Price</p>
+                  <p className="text-lg font-semibold text-white">{ticket.facePrice} <span className="text-sm text-slate-400">ETH</span></p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Max Resale Price</p>
+                  <p className="text-lg font-semibold text-amber-400">{ticket.currentResaleCap} <span className="text-sm text-amber-600">ETH</span></p>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Commission Fee</p>
+                <p className="text-lg font-semibold text-slate-300">{ticket.resaleCommissionBps}%</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/60 rounded-xl p-5 border border-slate-700/30">
+              <label className="block text-xs uppercase tracking-widest text-slate-500 mb-3">Set Resale Price</label>
               <div className="flex items-center gap-3">
                 <input
                   type="number"
@@ -128,22 +164,29 @@ export default function Resell() {
                   step="0.1"
                   value={resellPrice}
                   onChange={(e) => setResellPrice(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-lg"
+                  className="w-full bg-slate-800 border border-slate-700/50 text-white placeholder-slate-500 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition"
                   placeholder="Enter resale price"
                 />
-                <span className="text-lg font-bold text-gray-700">ETH</span>
+                <span className="text-lg font-bold text-slate-400">ETH</span>
               </div>
             </div>
 
             <button
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 rounded-2xl transition"
+              className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/40 transition-all duration-200 cursor-pointer"
               onClick={handleResell}
             >
               List for Resale
             </button>
+
+            <button
+              onClick={() => navigate("/my-tickets")}
+              className="w-full py-3 rounded-xl font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 hover:text-white hover:bg-slate-700/40 transition-all duration-200 cursor-pointer"
+            >
+              Back to My Tickets
+            </button>
           </div>
+          )}
         </div>
-        )}
       </div>
     </div>
   );

@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { getContract } from "../contract/useContract";
 import { useNavigate } from "react-router-dom";
+import { useAccount } from "../contract/AccountContext.jsx";
 
 export default function Events() {
     const navigate = useNavigate();
     const [events, setEvents] = useState([]);
+    const [ownerAddress, setOwnerAddress] = useState(null);
+    const { account, connectWallet } = useAccount();
 
     async function getAllEvents() {
         const contract = await getContract();
@@ -38,81 +41,130 @@ export default function Events() {
         (async () => {
         const evts = await getAllEvents();
         setEvents(evts);
+        try {
+            const contract = await getContract();
+            const owner = await contract.owner();
+            setOwnerAddress(owner);
+        } catch (err) {
+            console.warn("Failed to fetch contract owner:", err);
+        }
         })();
     }, []);
 
     return (
-        <div className="min-h-screen bg-gray-100 flex justify-center items-center px-6 py-10">
-        <div className="w-full max-w-6xl bg-white rounded-3xl shadow-lg overflow-hidden">
-            <div className="bg-black text-white p-8">
-            <h1 className="text-4xl font-extrabold mb-2">Available Events</h1>
-            <p className="text-gray-300">
-                Browse the available events.
-            </p>
-            </div>
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 py-16">
+            <div className="max-w-6xl mx-auto">
+                <div className="mb-4">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
+                    >
+                        ← Back
+                    </button>
+                </div>
 
-            <div className="p-8">
-            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-gray-50">
-                <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-100">
-                    <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Event ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Event
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Tickets Available
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Price (ETH)
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Action
-                    </th>
-                    </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                    {events.map((listing) => (
-                    <tr key={listing.eventId}>
-                        <td className="px-6 py-4 text-left whitespace-nowrap text-sm text-gray-900">
-                        #{listing.eventId}
-                        </td>
-                        <td className="px-6 py-4 text-left whitespace-nowrap text-sm text-gray-900">
-                        {listing.name}
-                        </td>
-                        <td className="px-6 py-4 text-left whitespace-nowrap text-sm text-gray-900">
-                        {listing.totalSupply - listing.ticketsSold}
-                        </td>
-                        <td className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-900">
-                        {listing.facePrice}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        {
-                            (listing.status !== "Active" || listing.totalSupply - listing.ticketsSold === 0) && (
-                                <td className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-900">
-                                Unavailable
-                                </td>
-                            )
-                        }
-                        {
-                            listing.status === "Active" && listing.totalSupply - listing.ticketsSold > 0 && (
-                                <button
-                                    className="inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition"
-                                    onClick={() => navigate(`/buy/${listing.eventId}`)}>
-                                    Buy
-                                </button>
-                            )
-                        }
-                        </td>
-                    </tr>
-                    ))}
-                </tbody>
-                </table>
+                <div className="mb-6">
+                    <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Official Sales</p>
+                    <h1 className="text-4xl font-extrabold bg-gradient-to-r from-violet-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+                        Available Events
+                    </h1>
+                    <p className="text-slate-400 mt-2">Browse and purchase tickets for upcoming events</p>
+                </div>
+
+                <div className="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full">
+                            <thead>
+                                <tr className="border-b border-slate-700/50">
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                        ID
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                        Event
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                        Available
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                        Price
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                        Status
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                        Action
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-700/30">
+                                {events.map((listing) => (
+                                <tr key={listing.eventId} className="hover:bg-slate-700/20 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-mono">
+                                        #{listing.eventId}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-white">
+                                        {listing.name}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                                        {listing.totalSupply - listing.ticketsSold} <span className="text-slate-500">/ {listing.totalSupply}</span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-white">
+                                        {listing.facePrice} <span className="text-slate-400 font-normal">ETH</span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${
+                                            listing.status === "Active"
+                                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                                : listing.status === "Ended"
+                                                ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                                : "bg-slate-500/20 text-slate-400 border-slate-500/30"
+                                        }`}>
+                                            {listing.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                        {(listing.status !== "Active" || listing.totalSupply - listing.ticketsSold === 0) && (
+                                            <span className="text-slate-500 font-medium">Unavailable</span>
+                                        )}
+                                        {listing.status === "Active" && listing.totalSupply - listing.ticketsSold > 0 && (
+                                            (() => {
+                                                const isOrganizer = ownerAddress && account && ownerAddress.toLowerCase() === account.toLowerCase();
+                                                return (
+                                                    <button
+                                                        disabled={isOrganizer}
+                                                        className={`px-5 py-2 rounded-xl font-semibold text-white ${isOrganizer ? 'bg-slate-600/40 cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/30'} transition-all duration-200 text-sm`}
+                                                        onClick={async () => {
+                                                            if (isOrganizer) {
+                                                                // ensure user is warned and doesn't navigate
+                                                                alert('Organizers cannot purchase tickets for their own events.');
+                                                                return;
+                                                            }
+                                                            // ensure wallet connected
+                                                            if (!account) await connectWallet();
+                                                            navigate(`/buy/${listing.eventId}`);
+                                                        }}
+                                                    >
+                                                        {isOrganizer ? 'Organizers cannot buy' : 'Buy Ticket'}
+                                                    </button>
+                                                );
+                                            })()
+                                        )}
+                                    </td>
+                                </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {events.length === 0 && (
+                        <div className="text-center py-16">
+                            <p className="text-lg text-slate-500">No events available yet</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Back to Home removed: top back arrow provides navigation */}
             </div>
-            </div>
-        </div>
         </div>
     );
 }

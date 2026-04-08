@@ -25,7 +25,10 @@ async function main() {
     marketplace: marketplaceAddress,
   };
 
-  const outPath = path.join(__dirname, "..", "frontend", "src", "contract", "deployed-addresses.json");
+  // write to frontend public so the dev server can fetch the latest file at runtime
+  const outPath = path.join(__dirname, "..", "frontend", "public", "contract", "deployed-addresses.json");
+  // ensure directory exists
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(addresses, null, 2));
 
   console.log("Deployer:", deployer.address);
