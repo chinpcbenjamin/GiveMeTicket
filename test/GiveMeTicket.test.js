@@ -526,3 +526,78 @@ describe("Marketplace", function () {
         });
     });
 });
+
+describe("claimRefund / withdrawRefund", function () {
+    async function deployWithCancelledEventFixture() {
+        const base = await deployWithTicketFixture();
+        await base.ticketing.cancelEvent(base.eventId);
+        return base;
+    }
+
+    it("credits facePrice to pendingRefunds", async function () {
+        const { ticketing, buyer1, tokenId } = await loadFixture(deployWithCancelledEventFixture);
+        await ticketing.connect(buyer1).claimRefund(tokenId);
+        expect(await ticketing.pendingRefunds(buyer1.address)).to.equal(ethers.parseEther("1"));
+    });
+
+    it("marks ticket as Cancelled", async function () {
+        const { ticketing, buyer1, tokenId } = await loadFixture(deployWithCancelledEventFixture);
+        await ticketing.connect(buyer1).claimRefund(tokenId);
+        const ticket = await ticketing.tickets(tokenId);
+        expect(ticket.status).to.equal(3);
+    });
+
+    it("emits RefundCredited", async function () {
+        const { ticketing, buyer1, tokenId } = await loadFixture(deployWithCancelledEventFixture);
+        await expect(ticketing.connect(buyer1).claimRefund(tokenId))
+            .to.emit(ticketing, "RefundCredited")
+            .withArgs(tokenId, buyer1.address, ethers.parseEther("1"));
+    });
+
+    it("reverts claimRefund when caller is not the ticket owner", async function () {
+        const { ticketing, buyer2, tokenId } = await loadFixture(deployWithCancelledEventFixture);
+        await expect(ticketing.connect(buyer2).claimRefund(tokenId))
+            .to.be.revertedWith("Not the ticket owner");
+    });
+
+    it("reverts claimRefund when event is not cancelled", async function () {
+        const { ticketing, buyer1, tokenId } = await loadFixture(deployWithTicketFixture);
+        await expect(ticketing.connect(buyer1).claimRefund(tokenId))
+            .to.be.revertedWith("Event is not cancelled");
+    });
+
+    it("reverts claimRefund when ticket is already Cancelled", async function () {
+        const { ticketing, buyer1, tokenId } = await loadFixture(deployWithCancelledEventFixture);
+        await ticketing.connect(buyer1).claimRefund(tokenId);
+        await expect(ticketing.connect(buyer1).claimRefund(tokenId))
+            .to.be.revertedWith("Ticket must be Valid");
+    });
+
+    it("withdrawRefund pays out the full credited balance", async function () {
+        const { ticketing, buyer1, tokenId } = await loadFixture(deployWithCancelledEventFixture);
+        await ticketing.connect(buyer1).claimRefund(tokenId);
+        await expect(ticketing.connect(buyer1).withdrawRefund())
+            .to.changeEtherBalance(buyer1, ethers.parseEther("1"));
+    });
+
+    it("clears pendingRefunds after withdrawRefund", async function () {
+        const { ticketing, buyer1, tokenId } = await loadFixture(deployWithCancelledEventFixture);
+        await ticketing.connect(buyer1).claimRefund(tokenId);
+        await ticketing.connect(buyer1).withdrawRefund();
+        expect(await ticketing.pendingRefunds(buyer1.address)).to.equal(0n);
+    });
+
+    it("emits RefundClaimed", async function () {
+        const { ticketing, buyer1, tokenId } = await loadFixture(deployWithCancelledEventFixture);
+        await ticketing.connect(buyer1).claimRefund(tokenId);
+        await expect(ticketing.connect(buyer1).withdrawRefund())
+            .to.emit(ticketing, "RefundClaimed")
+            .withArgs(buyer1.address, ethers.parseEther("1"));
+    });
+
+    it("reverts withdrawRefund when there is no pending refund", async function () {
+        const { ticketing, buyer1 } = await loadFixture(deployWithCancelledEventFixture);
+        await expect(ticketing.connect(buyer1).withdrawRefund())
+            .to.be.revertedWith("No refund available");
+    });
+});

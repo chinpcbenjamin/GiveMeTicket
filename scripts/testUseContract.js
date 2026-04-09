@@ -1,17 +1,18 @@
 const { ethers } = require("ethers");
 const path = require("path");
+const fs = require("fs");
 
-const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const ADDRESSES_PATH = path.join(__dirname, "..", "frontend", "public", "contract", "deployed-addresses.json");
 const ARTIFACT_PATH = path.join(__dirname, "..", "artifacts", "contracts", "TicketingPlatform.sol", "TicketingPlatform.json");
 
 async function main() {
+  const addresses = JSON.parse(fs.readFileSync(ADDRESSES_PATH, "utf8"));
+  const CONTRACT_ADDRESS = addresses.ticketingPlatform;
+
   const artifact = require(ARTIFACT_PATH);
   const ABI = artifact.abi;
 
-  // Connect to local Hardhat node
   const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
-
-  // Use provider as runner for read-only calls
   const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
   try {
