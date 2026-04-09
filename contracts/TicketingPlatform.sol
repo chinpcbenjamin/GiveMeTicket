@@ -69,9 +69,9 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         require(date > block.timestamp, "Event date must be in the future");
         require(totalSupply > 0,        "Total supply must be > 0");
         require(facePrice > 0,          "Face price must be > 0");
-        require(resaleCapBps >= 10_000 + resaleCommissionBps, "Resale cap must cover face price + commission");
-        require(resaleCommissionBps >= 0, "Resale commission must be >= 0");
-        require(resaleCommissionBps <= 10_000, "Resale commission must be <= 100% (10000 bps)");
+        require(resaleCommissionBps < 10_000, "Resale commission must be < 100%");
+        uint256 breakeven = (10_000 * 10_000 + (10_000 - resaleCommissionBps) - 1) / (10_000 - resaleCommissionBps);
+        require(resaleCapBps >= breakeven, "Resale cap must ensure seller breaks even after commission");
 
         eventId = nextEventId++;
         events[eventId] = Event({
@@ -194,7 +194,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
             ? 0
             : evt.date - block.timestamp;
 
-        uint256 floorBps = 10_000 + evt.resaleCommissionBps;
+        uint256 floorBps = (10_000 * 10_000 + (10_000 - evt.resaleCommissionBps) - 1) / (10_000 - evt.resaleCommissionBps);
         uint256 markup   = evt.resaleCapBps - floorBps;
         uint256 currentCapBps = floorBps + markup * timeLeft * timeLeft / (timeTotal * timeTotal);
 
