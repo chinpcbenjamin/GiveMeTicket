@@ -26,7 +26,7 @@ export default function ResellBuy() {
         return;
       }
 
-      const cap = await ticketing.getResaleCap(ticketId);
+      const currentPrice = await ticketing.getResaleCap(ticketId);
 
       const t = {
         ticketId: ticketId,
@@ -34,11 +34,10 @@ export default function ResellBuy() {
         eventName: eventRaw[0],
         facePrice: ethers.formatEther(ticketRaw[1]),
         seller: resaleListing[0],
-        resalePrice: ethers.formatEther(resaleListing[1]),
-        currentResaleCap: ethers.formatEther(cap),
+        currentPrice: ethers.formatEther(currentPrice),
+        currentPriceWei: currentPrice,
         status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
       };
-      console.log("Ticket data:", t);
       setTicket(t);
     } catch (err) {
       console.error("Failed to fetch ticket:", err);
@@ -48,15 +47,11 @@ export default function ResellBuy() {
   async function buyResaleTicket() {
     try {
       const ticketing = await getContract();
-      const currentCap = await ticketing.getResaleCap(ticketId);
-      if (ethers.parseEther(ticket.resalePrice) > currentCap) {
-        alert("This listing's price now exceeds the current resale cap. The seller must cancel and relist at a lower price.");
-        return false;
-      }
+      const freshPrice = await ticketing.getResaleCap(ticketId);
 
       const marketplace = await getMarketplaceContract();
       const tx = await marketplace.buyResaleTicket(ticketId, {
-        value: ethers.parseEther(ticket.resalePrice),
+        value: freshPrice,
       });
       await tx.wait();
       return true;
@@ -108,14 +103,13 @@ export default function ResellBuy() {
                   <p className="text-lg font-semibold text-slate-400">{ticket.facePrice} <span className="text-sm">ETH</span></p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Resale Price</p>
-                  <p className="text-2xl font-bold text-white">{ticket.resalePrice} <span className="text-sm text-slate-400">ETH</span></p>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Current Price</p>
+                  <p className="text-2xl font-bold text-white">{ticket.currentPrice} <span className="text-sm text-slate-400">ETH</span></p>
                 </div>
               </div>
 
-              <div>
-                <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Price Cap</p>
-                <p className="text-lg font-semibold text-amber-400">{ticket.currentResaleCap} <span className="text-sm text-amber-600">ETH</span></p>
+              <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/30">
+                <p className="text-xs text-slate-400">Price is set dynamically by the platform and decreases as the event approaches. The exact amount charged is determined at the moment of purchase.</p>
               </div>
 
               <div>
@@ -128,7 +122,7 @@ export default function ResellBuy() {
               onClick={handleResellBuy}
               className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/40 transition-all duration-200 cursor-pointer"
             >
-              Buy Now &mdash; {ticket.resalePrice} ETH
+              Buy Now &mdash; ~{ticket.currentPrice} ETH
             </button>
 
             <button

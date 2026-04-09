@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getContract, connectWallet, listTicketForResale, getMarketplaceContract } from "../contract/useContract";
+import { getContract, listTicketForResale, getMarketplaceContract } from "../contract/useContract";
 import { useAccount } from "../contract/AccountContext.jsx";
 import { ethers } from "ethers";
 
@@ -8,7 +8,6 @@ export default function Resell() {
   const navigate = useNavigate();
   const { ticketId } = useParams();
   const [ticket, setTicket] = useState(null);
-  const [resellPrice, setResellPrice] = useState(0);
   const { account, connectWallet } = useAccount();
 
   async function checkOwnership() {
@@ -29,11 +28,9 @@ export default function Resell() {
         return true;
       }
 
-      // Check if ticket is already listed on marketplace by this user
       const marketplace = await getMarketplaceContract();
       const listing = await marketplace.resaleListings(ticketId);
       if (listing.seller && listing.seller.toLowerCase() === currentUser.toLowerCase()) {
-        // Already listed — go back to My Tickets silently
         navigate("/my-tickets", { replace: true });
         return false;
       }
@@ -43,7 +40,6 @@ export default function Resell() {
       return false;
     } catch (err) {
       console.warn("Ownership check failed:", err);
-      // if ownerOf reverts with invalid token id, give clearer message
       const reason = err?.reason || err?.message || String(err);
       if (reason.includes("invalid token id") || reason.toLowerCase().includes("invalid token")) {
         alert("Ticket does not exist or has been burned");
@@ -65,7 +61,7 @@ export default function Resell() {
       eventId: ticketRaw[0],
       eventName: eventRaw[0],
       facePrice: ethers.formatEther(ticketRaw[1]),
-      currentResaleCap: ethers.formatEther(cap),
+      currentResalePrice: ethers.formatEther(cap),
       status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
       resaleCommissionBps: Number(eventRaw[7]) / 100,
     };
@@ -86,22 +82,8 @@ export default function Resell() {
   }, [ticketId]);
 
   async function handleResell() {
-    if (!resellPrice || Number(resellPrice) <= 0) {
-      alert("Please enter a valid resale price.");
-      return;
-    }
-
-    const contract = await getContract();
-    const maxPrice = await contract.getResaleCap(ticketId);
-    const priceWei = ethers.parseEther(String(resellPrice));
-
-    if (priceWei > maxPrice) {
-      alert(`Resale price exceeds the current cap of ${ethers.formatEther(maxPrice)} ETH. Please enter a lower value.`);
-      return;
-    }
-
     try {
-      const result = await listTicketForResale(ticketId, resellPrice);
+      const result = await listTicketForResale(ticketId);
       if (!result.success) {
         alert(result.error);
         return;
@@ -129,7 +111,7 @@ export default function Resell() {
           <div className="bg-gradient-to-r from-amber-600/20 to-orange-600/20 border-b border-slate-700/50 p-8">
             <p className="text-xs uppercase tracking-widest text-amber-400 mb-2">Resale Listing</p>
             <h1 className="text-3xl text-white font-extrabold">Resell Ticket</h1>
-            <p className="text-slate-400 mt-1">List your ticket on the marketplace</p>
+            <p className="text-slate-400 mt-1">List your ticket on the marketplace — price is set automatically by the platform</p>
           </div>
 
           {ticket && (
@@ -154,8 +136,8 @@ export default function Resell() {
                   <p className="text-lg font-semibold text-white">{ticket.facePrice} <span className="text-sm text-slate-400">ETH</span></p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Max Resale Price</p>
-                  <p className="text-lg font-semibold text-amber-400">{ticket.currentResaleCap} <span className="text-sm text-amber-600">ETH</span></p>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Current Resale Price</p>
+                  <p className="text-lg font-semibold text-amber-400">{ticket.currentResalePrice} <span className="text-sm text-amber-600">ETH</span></p>
                 </div>
               </div>
 
@@ -165,20 +147,8 @@ export default function Resell() {
               </div>
             </div>
 
-            <div className="bg-slate-900/60 rounded-xl p-5 border border-slate-700/30">
-              <label className="block text-xs uppercase tracking-widest text-slate-500 mb-3">Set Resale Price</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={resellPrice}
-                  onChange={(e) => setResellPrice(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700/50 text-white placeholder-slate-500 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition"
-                  placeholder="Enter resale price"
-                />
-                <span className="text-lg font-bold text-slate-400">ETH</span>
-              </div>
+            <div className="bg-slate-900/60 rounded-xl p-4 border border-amber-700/30">
+              <p className="text-sm text-amber-300">The resale price is determined dynamically by the platform and decreases as the event approaches. Your ticket will sell at whatever the current price is when a buyer purchases it.</p>
             </div>
 
             <button

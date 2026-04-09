@@ -42,14 +42,13 @@ export default function Marketplace() {
 
           const ticketRaw = await ticketing.tickets(tokenId);
           const eventRaw = await ticketing.events(ticketRaw[0]);
-          const cap = await ticketing.getResaleCap(tokenId);
+          const currentPrice = await ticketing.getResaleCap(tokenId);
 
           active.push({
             tokenId: Number(tokenId),
             eventName: eventRaw[0],
             seller: listing.seller,
-            price: ethers.formatEther(listing.price),
-            resaleCap: ethers.formatEther(cap),
+            currentPrice: ethers.formatEther(currentPrice),
           });
         } catch (err) {
           console.warn("Skipping listing due to error:", err);
@@ -110,10 +109,7 @@ export default function Marketplace() {
                       Seller
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                      Price
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                      Price Cap
+                      Current Price
                     </th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-widest">
                       Action
@@ -133,10 +129,7 @@ export default function Marketplace() {
                         {listing.seller.slice(0, 6)}...{listing.seller.slice(-4)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-white">
-                        {listing.price} <span className="text-slate-400 font-normal">ETH</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
-                        {listing.resaleCap} <span className="text-slate-500">ETH</span>
+                        {listing.currentPrice} <span className="text-slate-400 font-normal">ETH</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         <button
