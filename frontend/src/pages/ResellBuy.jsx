@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
 import { getContract, getMarketplaceContract } from "../contract/useContract";
+import { useAccount } from "../contract/AccountContext.jsx";
 
 export default function ResellBuy() {
   const navigate = useNavigate();
+  const { account } = useAccount();
+  const [ownerAddress, setOwnerAddress] = useState(null);
 
   const { ticketId } = useParams();
   useEffect(() => {
@@ -27,6 +30,7 @@ export default function ResellBuy() {
       }
 
       const currentPrice = await ticketing.getResaleCap(ticketId);
+      setOwnerAddress((await ticketing.owner()).toLowerCase());
 
       const t = {
         ticketId: ticketId,
@@ -120,9 +124,10 @@ export default function ResellBuy() {
 
             <button
               onClick={handleResellBuy}
-              className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/40 transition-all duration-200 cursor-pointer"
+              disabled={Boolean(ownerAddress && account && ownerAddress === account.toLowerCase())}
+              className={`w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/40 transition-all duration-200 ${ownerAddress && account && ownerAddress === account.toLowerCase() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              Buy Now &mdash; ~{ticket.currentPrice} ETH
+              {ownerAddress && account && ownerAddress === account.toLowerCase() ? 'Organizers cannot buy' : `Buy Now \u2014 ~${ticket.currentPrice} ETH`}
             </button>
 
             <button

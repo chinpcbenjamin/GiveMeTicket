@@ -49,6 +49,8 @@ contract Marketplace is ReentrancyGuard {
     }
 
     function buyResaleTicket(uint256 tokenId) external payable nonReentrant {
+        require(msg.sender != ticketing.owner(), "Organizer cannot buy resale tickets");
+
         ResaleListing memory listing = resaleListings[tokenId];
         require(listing.seller != address(0), "No active listing");
 

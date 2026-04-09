@@ -17,6 +17,7 @@ export default function Marketplace() {
   const { account } = useAccount();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOrganizer, setIsOrganizer] = useState(false);
 
   useEffect(() => {
     fetchListings();
@@ -29,6 +30,8 @@ export default function Marketplace() {
       const addr = await connectWallet();
       if (!addr) { setLoading(false); return; }
       const currentUser = addr.toLowerCase();
+      const owner = (await ticketing.owner()).toLowerCase();
+      setIsOrganizer(currentUser === owner);
 
       const count = await marketplace.getActiveListingCount();
       const active = [];
@@ -132,12 +135,16 @@ export default function Marketplace() {
                         {listing.currentPrice} <span className="text-slate-400 font-normal">ETH</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <button
-                          className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/30 transition-all duration-200 cursor-pointer text-sm"
-                          onClick={() => navigate(`/resell-buy/${listing.tokenId}`)}
-                        >
-                          Buy
-                        </button>
+                        {isOrganizer ? (
+                          <span className="text-slate-500 font-medium">Organizers cannot buy</span>
+                        ) : (
+                          <button
+                            className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/30 transition-all duration-200 cursor-pointer text-sm"
+                            onClick={() => navigate(`/resell-buy/${listing.tokenId}`)}
+                          >
+                            Buy
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
