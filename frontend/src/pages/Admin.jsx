@@ -194,10 +194,10 @@ export default function Admin() {
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col items-center px-4 py-16">
             <div className="w-full flex justify-start mb-4">
                 <button
-                    onClick={() => navigate(-1)}
+                    onClick={() => navigate("/")}
                     className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
                 >
-                    ← Back
+                    ← Home
                 </button>
             </div>
 

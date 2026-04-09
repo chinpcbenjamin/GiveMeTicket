@@ -182,10 +182,10 @@ export default function MyTickets() {
         <div className="mb-10">
           <div className="mb-4">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/")}
               className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
             >
-              ← Back
+              ← Home
             </button>
           </div>
           <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Your Collection</p>
