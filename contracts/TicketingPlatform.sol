@@ -42,6 +42,8 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     event EventCancelled(uint256 indexed eventId);
     event EventEnded(uint256 indexed eventId);
     event TicketUsed(uint256 indexed tokenId);
+    event MarketplaceSet(address indexed marketplace);
+    event TicketStatusChanged(uint256 indexed tokenId, TicketStatus status);
 
     modifier onlyMarketplace() {
         require(msg.sender == marketplace, "Caller is not the marketplace");
@@ -113,6 +115,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     function setMarketplace(address _marketplace) external onlyOwner {
         require(_marketplace != address(0), "Invalid marketplace address");
         marketplace = _marketplace;
+        emit MarketplaceSet(_marketplace);
     }
 
     // Accepts ETH (e.g. resale commission from Marketplace).
@@ -197,12 +200,14 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     function setTicketToResale(uint256 tokenId) external onlyMarketplace {
         require(tickets[tokenId].status == TicketStatus.Valid, "Ticket is not Valid");
         tickets[tokenId].status = TicketStatus.Resale;
+        emit TicketStatusChanged(tokenId, TicketStatus.Resale);
     }
 
     // Sets a ticket status back to Valid when it leaves marketplace escrow. Only marketplace.
     function setTicketToValid(uint256 tokenId) external onlyMarketplace {
         require(tickets[tokenId].status == TicketStatus.Resale, "Ticket is not in Resale");
         tickets[tokenId].status = TicketStatus.Valid;
+        emit TicketStatusChanged(tokenId, TicketStatus.Valid);
     }
 
     // =========================================================================

@@ -21,3 +21,4 @@ ignition/deployments/chain-31337
 
 # Auto-generated deploy addresses
 frontend/src/contract/deployed-addresses.json
+frontend/public/contract/deployed-addresses.json
