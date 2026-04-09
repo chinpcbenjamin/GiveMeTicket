@@ -55,7 +55,7 @@ contract Marketplace is ReentrancyGuard {
         require(listing.seller != address(0), "No active listing");
 
         uint256 price = ticketing.getResaleCap(tokenId);
-        require(msg.value >= price, "Payment below current resale price");
+        require(msg.value == price, "Payment must match current resale price");
 
         address seller = listing.seller;
 
@@ -79,12 +79,6 @@ contract Marketplace is ReentrancyGuard {
         if (commission > 0) {
             (bool commissionOk, ) = address(ticketing).call{value: commission}("");
             require(commissionOk, "Commission transfer failed");
-        }
-
-        uint256 refund = msg.value - price;
-        if (refund > 0) {
-            (bool refundOk, ) = msg.sender.call{value: refund}("");
-            require(refundOk, "Refund transfer failed");
         }
 
         emit ResaleTicketSold(tokenId, msg.sender, price, commission, sellerProceeds);

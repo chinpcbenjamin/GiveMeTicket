@@ -58,7 +58,7 @@ export default function ResellBuy() {
         value: freshPrice,
       });
       await tx.wait();
-      return true;
+      return ethers.formatEther(freshPrice);
     } catch (error) {
       console.error(error);
       return false;
@@ -67,9 +67,9 @@ export default function ResellBuy() {
 
   const handleResellBuy = async () => {
     try {
-      const ok = await buyResaleTicket();
-      if (ok) {
-        alert("Resale ticket purchased successfully!");
+      const pricePaid = await buyResaleTicket();
+      if (pricePaid) {
+        alert(`Resale ticket purchased successfully!\nPrice paid: ${pricePaid} ETH`);
         navigate("/my-tickets", { replace: true });
       } else {
         alert("Failed to buy ticket");
