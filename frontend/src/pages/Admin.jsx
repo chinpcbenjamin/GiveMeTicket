@@ -140,6 +140,13 @@ export default function Admin() {
         setGateMessage("");
         try {
             const contract = await getContract();
+            try {
+                await contract.ownerOf(Number(gateTicketId));
+            } catch {
+                setGateStatus("error");
+                setGateMessage("Ticket does not exist");
+                return;
+            }
             const ticketRaw = await contract.tickets(Number(gateTicketId));
             const statusLabel = ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])];
             const eventRaw = await contract.events(ticketRaw[0]);
