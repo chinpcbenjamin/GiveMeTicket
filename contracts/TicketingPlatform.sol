@@ -36,6 +36,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     uint256 public nextTokenId;
 
     address public marketplace;
+    mapping(address => uint256) public pendingRefunds;
 
     event EventCreated(uint256 indexed eventId, string name, uint256 facePrice);
     event TicketMinted(uint256 indexed tokenId, uint256 indexed eventId, address buyer);
@@ -45,6 +46,8 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     event MarketplaceSet(address indexed marketplace);
     event TicketStatusChanged(uint256 indexed tokenId, TicketStatus status);
     event Withdrawn(address indexed recipient, uint256 amount);
+    event RefundCredited(uint256 indexed tokenId, address indexed buyer, uint256 amount);
+    event RefundClaimed(address indexed buyer, uint256 amount);
 
     modifier onlyMarketplace() {
         require(msg.sender == marketplace, "Caller is not the marketplace");
@@ -162,6 +165,30 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
         _safeMint(msg.sender, tokenId);
         emit TicketMinted(tokenId, eventId, msg.sender);
+    }
+
+    // Claims a refund for a ticket belonging to a cancelled event.
+    // Ticket must be Valid (not in escrow) — if it is listed on the marketplace,
+    function claimRefund(uint256 tokenId) external nonReentrant {
+        require(ownerOf(tokenId) == msg.sender,                "Not the ticket owner");
+        require(tickets[tokenId].status == TicketStatus.Valid, "Ticket must be Valid");
+        require(events[tickets[tokenId].eventId].status == EventStatus.Cancelled, "Event is not cancelled");
+
+        uint256 refundAmount = tickets[tokenId].facePrice;
+        tickets[tokenId].status = TicketStatus.Cancelled;
+
+        pendingRefunds[msg.sender] += refundAmount;
+        emit RefundCredited(tokenId, msg.sender, refundAmount);
+    }
+
+    // Withdraws the caller's accumulated refund balance.
+    function withdrawRefund() external nonReentrant {
+        uint256 amount = pendingRefunds[msg.sender];
+        require(amount > 0, "No refund available");
+        pendingRefunds[msg.sender] = 0;
+        (bool ok, ) = msg.sender.call{value: amount}("");
+        require(ok, "Refund transfer failed");
+        emit RefundClaimed(msg.sender, amount);
     }
 
     // Returns the dynamic resale price cap in wei.

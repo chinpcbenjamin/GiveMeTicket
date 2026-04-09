@@ -18,6 +18,8 @@ export default function MyTickets() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [countdown, setCountdown] = useState(8);
   const intervalRef = null;
+  const [pendingProceeds, setPendingProceeds] = useState(null);
+  const [pendingRefundBal, setPendingRefundBal] = useState(null);
 
   async function fetchTickets() {
       const contract = await getContract();
@@ -51,6 +53,7 @@ export default function MyTickets() {
                 eventName: eventRaw[0],
                 facePrice: ethers.formatEther(ticketRaw[1]),
                 status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
+                eventStatus: ["Active", "Ended", "Cancelled"][Number(eventRaw[6])],
               };
               if (usedIds.includes(i)) {
                 ticket.status = "Used";
@@ -62,11 +65,53 @@ export default function MyTickets() {
             }
       }
       setMyTickets(myTicketsList);
+
+      const proceeds = await marketplace.pendingWithdrawals(currentUser);
+      setPendingProceeds(proceeds);
+
+      const refundBal = await contract.pendingRefunds(currentUser);
+      setPendingRefundBal(refundBal);
   }
 
   useEffect(() => {
     fetchTickets();
   }, []);
+
+  async function handleClaimProceeds() {
+    try {
+      const marketplace = await getMarketplaceContract();
+      const tx = await marketplace.claimProceeds();
+      await tx.wait();
+      await fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to claim proceeds");
+    }
+  }
+
+  async function handleClaimRefund(ticketId) {
+    try {
+      const contract = await getContract();
+      const tx = await contract.claimRefund(ticketId);
+      await tx.wait();
+      await fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to claim refund");
+    }
+  }
+
+  async function handleWithdrawRefund() {
+    try {
+      const contract = await getContract();
+      const tx = await contract.withdrawRefund();
+      await tx.wait();
+      await fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to withdraw refund");
+    }
+  }
 
   async function handleCancelResale(ticketId) {
     try {
@@ -147,6 +192,36 @@ export default function MyTickets() {
           <p className="text-slate-400 mt-2">View and manage all tickets in your wallet</p>
         </div>
 
+        {pendingProceeds > 0n && (
+          <div className="mb-6 bg-amber-900/30 border border-amber-700/50 rounded-2xl px-6 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-amber-500 mb-0.5">Pending Resale Proceeds</p>
+              <p className="text-xl font-bold text-amber-300">{ethers.formatEther(pendingProceeds)} <span className="text-sm text-amber-500">ETH</span></p>
+            </div>
+            <button
+              onClick={handleClaimProceeds}
+              className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/30 transition-all duration-200 cursor-pointer text-sm"
+            >
+              Claim
+            </button>
+          </div>
+        )}
+
+        {pendingRefundBal > 0n && (
+          <div className="mb-6 bg-rose-900/30 border border-rose-700/50 rounded-2xl px-6 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-rose-400 mb-0.5">Pending Refunds</p>
+              <p className="text-xl font-bold text-rose-300">{ethers.formatEther(pendingRefundBal)} <span className="text-sm text-rose-500">ETH</span></p>
+            </div>
+            <button
+              onClick={handleWithdrawRefund}
+              className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-900/30 transition-all duration-200 cursor-pointer text-sm"
+            >
+              Withdraw
+            </button>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
           {myTickets.map((ticket) => (
             <div
@@ -190,6 +265,14 @@ export default function MyTickets() {
                         Simulate Use
                       </button>
                     </>
+                  )}
+                  {ticket.status === "Valid" && ticket.eventStatus === "Cancelled" && (
+                    <button
+                      onClick={() => handleClaimRefund(ticket.ticketId)}
+                      className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-900/30 transition-all duration-200 cursor-pointer text-sm"
+                    >
+                      Claim Refund
+                    </button>
                   )}
                   {ticket.status === "Resale" && (
                     <button
