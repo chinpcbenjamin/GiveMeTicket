@@ -31,11 +31,16 @@ async function main() {
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(addresses, null, 2));
 
+  const outPath2 = path.join(__dirname, "..", "frontend", "src", "contract", "deployed-addresses.json");
+  // ensure directory exists
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(addresses, null, 2));
+
   console.log("Deployer:", deployer.address);
   console.log("TicketingPlatform:", ticketingAddress);
   console.log("Marketplace:", marketplaceAddress);
   console.log("Bound: TicketingPlatform.marketplace() ->", await ticketing.marketplace());
-  console.log("Addresses written to:", outPath);
+  console.log("Addresses written to:", outPath, "and", outPath2);
 }
 
 main().catch((error) => {
