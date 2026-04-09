@@ -49,13 +49,19 @@ export default function MyTickets() {
 
               const ticketRaw = await contract.tickets(i);
               const eventRaw = await contract.events(ticketRaw[0]);
+              const rawStatus = ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])];
+              const eventStatus = ["Active", "Ended", "Cancelled"][Number(eventRaw[6])];
+              let displayStatus = rawStatus;
+              if (rawStatus === "Valid" && eventStatus === "Ended") displayStatus = "Event Ended";
+              if (rawStatus === "Valid" && eventStatus === "Cancelled") displayStatus = "Event Cancelled";
+
               const ticket = {
                 ticketId: i,
                 eventId: ticketRaw[0],
                 eventName: eventRaw[0],
                 facePrice: ethers.formatEther(ticketRaw[1]),
-                status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
-                eventStatus: ["Active", "Ended", "Cancelled"][Number(eventRaw[6])],
+                status: displayStatus,
+                eventStatus: eventStatus,
               };
               myTicketsList.push(ticket);
             } catch (err) {
@@ -167,6 +173,8 @@ export default function MyTickets() {
     Used: "bg-amber-500/20 text-amber-400 border-amber-500/30",
     Resale: "bg-blue-500/20 text-blue-400 border-blue-500/30",
     Cancelled: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    "Event Ended": "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    "Event Cancelled": "bg-rose-500/20 text-rose-400 border-rose-500/30",
   };
 
   return (
