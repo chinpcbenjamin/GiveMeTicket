@@ -60,6 +60,7 @@ export default function MyTickets() {
                 eventId: ticketRaw[0],
                 eventName: eventRaw[0],
                 facePrice: ethers.formatEther(ticketRaw[1]),
+                rawStatus: rawStatus,
                 status: displayStatus,
                 eventStatus: eventStatus,
               };
@@ -254,7 +255,7 @@ export default function MyTickets() {
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                  {ticket.status === "Valid" && ticket.eventStatus === "Active" && (
+                  {ticket.rawStatus === "Valid" && ticket.eventStatus === "Active" && (
                     <>
                       <button
                         className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/30 transition-all duration-200 cursor-pointer text-sm"
@@ -270,7 +271,7 @@ export default function MyTickets() {
                       </button>
                     </>
                   )}
-                  {ticket.status === "Valid" && ticket.eventStatus === "Cancelled" && (
+                  {ticket.rawStatus === "Valid" && ticket.eventStatus === "Cancelled" && (
                     <button
                       onClick={() => handleClaimRefund(ticket.ticketId)}
                       className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-900/30 transition-all duration-200 cursor-pointer text-sm"
@@ -278,7 +279,7 @@ export default function MyTickets() {
                       Claim Refund
                     </button>
                   )}
-                  {ticket.status === "Resale" && (
+                  {ticket.rawStatus === "Resale" && (
                     <button
                       onClick={() => handleCancelResale(ticket.ticketId)}
                       className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-900/30 transition-all duration-200 cursor-pointer text-sm"
