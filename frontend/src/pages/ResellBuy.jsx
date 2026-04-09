@@ -22,8 +22,7 @@ export default function ResellBuy() {
       const eventRaw = await ticketing.events(ticketRaw[0]);
 
       if (resaleListing[0] === ethers.ZeroAddress) {
-        alert("This ticket is not listed for resale.");
-        navigate("/marketplace");
+        navigate("/marketplace", { replace: true });
         return;
       }
 
@@ -48,6 +47,13 @@ export default function ResellBuy() {
 
   async function buyResaleTicket() {
     try {
+      const ticketing = await getContract();
+      const currentCap = await ticketing.getResaleCap(ticketId);
+      if (ethers.parseEther(ticket.resalePrice) > currentCap) {
+        alert("This listing's price now exceeds the current resale cap. The seller must cancel and relist at a lower price.");
+        return false;
+      }
+
       const marketplace = await getMarketplaceContract();
       const tx = await marketplace.buyResaleTicket(ticketId, {
         value: ethers.parseEther(ticket.resalePrice),
@@ -65,7 +71,7 @@ export default function ResellBuy() {
       const ok = await buyResaleTicket();
       if (ok) {
         alert("Resale ticket purchased successfully!");
-        navigate("/my-tickets");
+        navigate("/my-tickets", { replace: true });
       } else {
         alert("Failed to buy ticket");
       }

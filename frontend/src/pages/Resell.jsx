@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getContract, connectWallet, listTicketForResale } from "../contract/useContract";
+import { getContract, connectWallet, listTicketForResale, getMarketplaceContract } from "../contract/useContract";
 import { useAccount } from "../contract/AccountContext.jsx";
 import { ethers } from "ethers";
 
@@ -25,12 +25,22 @@ export default function Resell() {
       }
 
       const ticket_owner = await contract.ownerOf(ticketId);
-      if (!ticket_owner || ticket_owner.toLowerCase() !== currentUser.toLowerCase()) {
-        alert("You do not own this ticket!");
-        navigate("/my-tickets");
+      if (ticket_owner.toLowerCase() === currentUser.toLowerCase()) {
+        return true;
+      }
+
+      // Check if ticket is already listed on marketplace by this user
+      const marketplace = await getMarketplaceContract();
+      const listing = await marketplace.resaleListings(ticketId);
+      if (listing.seller && listing.seller.toLowerCase() === currentUser.toLowerCase()) {
+        // Already listed — go back to My Tickets silently
+        navigate("/my-tickets", { replace: true });
         return false;
       }
-      return true;
+
+      alert("You do not own this ticket!");
+      navigate("/my-tickets");
+      return false;
     } catch (err) {
       console.warn("Ownership check failed:", err);
       // if ownerOf reverts with invalid token id, give clearer message
@@ -59,14 +69,8 @@ export default function Resell() {
       status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
       resaleCommissionBps: Number(eventRaw[7]) / 100,
     };
-    if (t.status !== "Valid") {
-      alert("Ticket is not valid!");
-      navigate("/my-tickets");
-      return;
-    }
-    if (["Active", "Ended", "Cancelled"][Number(eventRaw[6])] !== "Active") {
-      alert("Event is not active!");
-      navigate("/my-tickets");
+    if (t.status !== "Valid" || ["Active", "Ended", "Cancelled"][Number(eventRaw[6])] !== "Active") {
+      navigate("/my-tickets", { replace: true });
       return;
     }
 
@@ -82,11 +86,17 @@ export default function Resell() {
   }, [ticketId]);
 
   async function handleResell() {
+    if (!resellPrice || Number(resellPrice) <= 0) {
+      alert("Please enter a valid resale price.");
+      return;
+    }
+
     const contract = await getContract();
     const maxPrice = await contract.getResaleCap(ticketId);
+    const priceWei = ethers.parseEther(String(resellPrice));
 
-    if (ethers.parseEther(resellPrice) > maxPrice) {
-      alert("Resale price is too high!");
+    if (priceWei > maxPrice) {
+      alert(`Resale price exceeds the current cap of ${ethers.formatEther(maxPrice)} ETH. Please enter a lower value.`);
       return;
     }
 
@@ -97,7 +107,7 @@ export default function Resell() {
         return;
       }
       alert("Ticket listed for resale!");
-      navigate("/my-tickets");
+      navigate("/my-tickets", { replace: true });
     } catch (error) {
       console.error(error);
       alert("Failed to list ticket for resale");

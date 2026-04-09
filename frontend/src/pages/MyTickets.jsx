@@ -8,23 +8,26 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getContract, getMarketplaceContract, connectWallet } from "../contract/useContract";
 import { getMarketplaceAddress } from "../contract/config";
+import { useAccount } from "../contract/AccountContext.jsx";
 import { ethers } from "ethers";
 
 export default function MyTickets() {
   const navigate = useNavigate();
+  const { account } = useAccount();
   const [myTickets, setMyTickets] = useState([]);
   const [showUseModal, setShowUseModal] = useState(false);
   const [ticketToUse, setTicketToUse] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [countdown, setCountdown] = useState(8);
-  const intervalRef = null;
-  const [pendingProceeds, setPendingProceeds] = useState(null);
-  const [pendingRefundBal, setPendingRefundBal] = useState(null);
+  const [pendingProceeds, setPendingProceeds] = useState(0n);
+  const [pendingRefundBal, setPendingRefundBal] = useState(0n);
 
   async function fetchTickets() {
       const contract = await getContract();
       const marketplace = await getMarketplaceContract();
-      const currentUser = (await connectWallet()).toLowerCase();
+      const addr = await connectWallet();
+      if (!addr) return;
+      const currentUser = addr.toLowerCase();
       const marketplaceAddr = await getMarketplaceAddress();
       const marketplaceLower = marketplaceAddr.toLowerCase();
 
@@ -75,7 +78,7 @@ export default function MyTickets() {
 
   useEffect(() => {
     fetchTickets();
-  }, []);
+  }, [account]);
 
   async function handleClaimProceeds() {
     try {
@@ -250,7 +253,7 @@ export default function MyTickets() {
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                  {ticket.status === "Valid" && (
+                  {ticket.status === "Valid" && ticket.eventStatus === "Active" && (
                     <>
                       <button
                         className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/30 transition-all duration-200 cursor-pointer text-sm"

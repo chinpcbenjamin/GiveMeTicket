@@ -13,6 +13,26 @@ export default function Admin() {
     const [contractBalance, setContractBalance] = useState(null);
     const [ownerAddressState, setOwnerAddressState] = useState(null);
     const [ownerWalletBalance, setOwnerWalletBalance] = useState(null);
+    const [events, setEvents] = useState([]);
+
+    async function fetchEvents() {
+        try {
+            const contract = await getContract();
+            const nextId = Number(await contract.nextEventId());
+            const list = [];
+            for (let i = 0; i < nextId; i++) {
+                const e = await contract.events(i);
+                list.push({
+                    eventId: i,
+                    name: e[0],
+                    status: ["Active", "Ended", "Cancelled"][Number(e[6])],
+                });
+            }
+            setEvents(list);
+        } catch (err) {
+            console.error("Failed to fetch events:", err);
+        }
+    }
 
     async function fetchBalance() {
         try {
@@ -46,17 +66,9 @@ export default function Admin() {
     const [resaleCapBps, setResaleCapBps] = useState("");
     const [resaleCommissionBps, setResaleCommissionBps] = useState("");
 
-    // connectWallet provided by AccountContext
-
-    async function getOwnerAddress() {
-        try {
-            const contract = await getContract();
-            const owner = await contract.owner()
-            console.log("Owner:", owner)
-        } catch (err) {
-            console.error(err)
-        }
-    }
+    const [gateTicketId, setGateTicketId] = useState("");
+    const [gateStatus, setGateStatus] = useState(null); // null | "valid" | "invalid" | "used" | "error"
+    const [gateMessage, setGateMessage] = useState("");
 
     async function withdrawMoney() {
         try {
@@ -96,7 +108,10 @@ export default function Admin() {
             console.log("Event created!", receipt);
             return true
         } catch (err) {
+            const reason = err?.reason || err?.data?.message || err?.message || String(err);
+            alert(`Failed to create event: ${reason}`);
             console.error(err);
+            return false;
         }
     }
 
@@ -105,15 +120,74 @@ export default function Admin() {
         if (ok) {
             alert("Event created successfully!");
             navigate("/events");
-        } else {
-            alert("You are not the owner!");
         }
     };
+
+    async function handleCancelEvent(eventId) {
+        try {
+            const contract = await getContract();
+            const tx = await contract.cancelEvent(eventId);
+            await tx.wait();
+            await fetchEvents();
+        } catch (err) {
+            const reason = err?.reason || err?.data?.message || err?.message || String(err);
+            alert(`Cancel failed: ${reason}`);
+        }
+    }
+
+    async function handleCheckTicket() {
+        setGateStatus(null);
+        setGateMessage("");
+        try {
+            const contract = await getContract();
+            const ticketRaw = await contract.tickets(Number(gateTicketId));
+            const statusLabel = ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])];
+            const eventRaw = await contract.events(ticketRaw[0]);
+            const eventName = eventRaw[0];
+            if (statusLabel === "Valid") {
+                setGateStatus("valid");
+                setGateMessage(`Ticket #${gateTicketId} — ${eventName} — Valid`);
+            } else {
+                setGateStatus("invalid");
+                setGateMessage(`Ticket #${gateTicketId} — ${eventName} — ${statusLabel}`);
+            }
+        } catch (err) {
+            setGateStatus("error");
+            setGateMessage("Ticket not found or error fetching status");
+        }
+    }
+
+    async function handleMarkTicketUsed() {
+        try {
+            const contract = await getContract();
+            const tx = await contract.markTicketUsed(Number(gateTicketId));
+            await tx.wait();
+            setGateStatus("used");
+            setGateMessage(`Ticket #${gateTicketId} marked as Used on-chain`);
+        } catch (err) {
+            const reason = err?.reason || err?.data?.message || err?.message || String(err);
+            setGateStatus("error");
+            setGateMessage(`Failed: ${reason}`);
+        }
+    }
+
+    async function handleMarkEnded(eventId) {
+        try {
+            const contract = await getContract();
+            const tx = await contract.markEventEnded(eventId);
+            await tx.wait();
+            await fetchEvents();
+        } catch (err) {
+            const reason = err?.reason || err?.data?.message || err?.message || String(err);
+            alert(`Mark ended failed: ${reason}`);
+        }
+    }
 
     useEffect(() => {
         if (!account) return;
         fetchBalance();
         fetchOwner();
+        fetchEvents();
     }, [account]);
 
     return (
@@ -165,15 +239,6 @@ export default function Admin() {
 
                 {account && (
                     <button
-                        className="w-full py-4 rounded-xl font-semibold text-white bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 shadow-lg shadow-pink-900/30 transition-all duration-200 cursor-pointer"
-                        onClick={() => getOwnerAddress()}
-                    >
-                        Get Owner Address (Debug)
-                    </button>
-                )}
-
-                {account && (
-                    <button
                         className={`w-full py-4 rounded-xl font-semibold text-white ${ownerAddressState && account && ownerAddressState.toLowerCase() === account.toLowerCase() ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-900/30' : 'bg-slate-700/40 cursor-not-allowed opacity-60'}`}
                         onClick={() => withdrawMoney()}
                         disabled={!(ownerAddressState && account && ownerAddressState.toLowerCase() === account.toLowerCase())}
@@ -198,6 +263,104 @@ export default function Admin() {
                     >
                         Connect Wallet
                     </button>
+                )}
+
+                {account && (
+                    <div className="w-full mt-2">
+                        <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Ticket Gate</p>
+                        <div className="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 flex flex-col gap-4">
+                            <p className="text-sm text-slate-400">Enter a ticket ID to verify and mark as used at the venue gate.</p>
+                            <div className="flex gap-2">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Ticket ID"
+                                    value={gateTicketId}
+                                    onChange={(e) => { setGateTicketId(e.target.value); setGateStatus(null); setGateMessage(""); }}
+                                    className="flex-1 bg-slate-900 border border-slate-700/50 text-white placeholder-slate-500 px-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition text-sm"
+                                />
+                                <button
+                                    onClick={handleCheckTicket}
+                                    disabled={gateTicketId === ""}
+                                    className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-slate-700 hover:bg-slate-600 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Check
+                                </button>
+                            </div>
+                            {gateMessage && (
+                                <div className={`rounded-xl px-4 py-3 text-sm font-medium ${
+                                    gateStatus === "valid"   ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" :
+                                    gateStatus === "used"    ? "bg-blue-500/15 text-blue-300 border border-blue-500/30" :
+                                    gateStatus === "invalid" ? "bg-amber-500/15 text-amber-300 border border-amber-500/30" :
+                                                               "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                                }`}>
+                                    {gateMessage}
+                                </div>
+                            )}
+                            {gateStatus === "valid" && (
+                                <button
+                                    onClick={handleMarkTicketUsed}
+                                    className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-900/30 transition-all duration-200 cursor-pointer"
+                                >
+                                    Mark Ticket #{gateTicketId} as Used
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {events.length > 0 && (
+                    <div className="w-full mt-2">
+                        <p className="text-xs uppercase tracking-widest text-slate-500 mb-3">Manage Events</p>
+                        <div className="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+                            <table className="min-w-full">
+                                <thead>
+                                    <tr className="border-b border-slate-700/50">
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">ID</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">Name</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">Status</th>
+                                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-widest">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-700/30">
+                                    {events.map((evt) => (
+                                        <tr key={evt.eventId} className="hover:bg-slate-700/20 transition-colors">
+                                            <td className="px-4 py-3 text-sm text-slate-400 font-mono">#{evt.eventId}</td>
+                                            <td className="px-4 py-3 text-sm font-semibold text-white">{evt.name}</td>
+                                            <td className="px-4 py-3 text-sm">
+                                                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold border ${
+                                                    evt.status === "Active" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                                    : evt.status === "Ended" ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                                    : "bg-slate-500/20 text-slate-400 border-slate-500/30"
+                                                }`}>{evt.status}</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                {evt.status === "Active" && (
+                                                    <div className="inline-flex gap-2">
+                                                        <button
+                                                            onClick={() => handleMarkEnded(evt.eventId)}
+                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 transition-all duration-200 cursor-pointer"
+                                                        >
+                                                            Mark Ended
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleCancelEvent(evt.eventId)}
+                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 transition-all duration-200 cursor-pointer"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                {evt.status !== "Active" && (
+                                                    <span className="text-xs text-slate-500">—</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 )}
 
                 {showCreateModal && (

@@ -10,21 +10,25 @@ import {
   getMarketplaceContract,
   connectWallet,
 } from "../contract/useContract";
+import { useAccount } from "../contract/AccountContext.jsx";
 
 export default function Marketplace() {
   const navigate = useNavigate();
+  const { account } = useAccount();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchListings();
-  }, []);
+  }, [account]);
 
   async function fetchListings() {
     try {
       const marketplace = await getMarketplaceContract();
       const ticketing = await getContract();
-      const currentUser = (await connectWallet()).toLowerCase();
+      const addr = await connectWallet();
+      if (!addr) { setLoading(false); return; }
+      const currentUser = addr.toLowerCase();
 
       const count = await marketplace.getActiveListingCount();
       const active = [];

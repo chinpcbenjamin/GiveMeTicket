@@ -40,16 +40,17 @@ contract Marketplace is ReentrancyGuard {
         (, , , , , , TicketingPlatform.EventStatus eventStatus, , ) = ticketing.events(eventId);
         require(eventStatus == TicketingPlatform.EventStatus.Active,  "Event not active");
 
-        require(price <= ticketing.getResaleCap(tokenId), "Price exceeds resale cap");
+        uint256 cap = ticketing.getResaleCap(tokenId);
+        uint256 listingPrice = price > cap ? cap : price;
 
-        resaleListings[tokenId] = ResaleListing({ seller: msg.sender, price: price });
+        resaleListings[tokenId] = ResaleListing({ seller: msg.sender, price: listingPrice });
         _activeListings.add(tokenId);
 
         ticketing.transferFrom(msg.sender, address(this), tokenId);
         require(ticketing.ownerOf(tokenId) == address(this), "Escrow transfer failed");
         ticketing.setTicketToResale(tokenId);
 
-        emit TicketListed(tokenId, msg.sender, price);
+        emit TicketListed(tokenId, msg.sender, listingPrice);
     }
 
     function buyResaleTicket(uint256 tokenId) external payable nonReentrant {

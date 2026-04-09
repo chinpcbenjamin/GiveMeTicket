@@ -397,12 +397,14 @@ describe("Marketplace", function () {
             ).to.be.revertedWith("Price must be > 0");
         });
 
-        it("reverts when price exceeds the resale cap", async function () {
+        it("clamps listing price to the resale cap when price exceeds cap", async function () {
             const { ticketing, marketplace, buyer1, tokenId } = await loadFixture(deployWithTicketFixture);
             await ticketing.connect(buyer1).approve(await marketplace.getAddress(), tokenId);
-            await expect(
-                marketplace.connect(buyer1).listTicket(tokenId, ethers.parseEther("3"))
-            ).to.be.revertedWith("Price exceeds resale cap");
+            const cap = await ticketing.getResaleCap(tokenId);
+            await marketplace.connect(buyer1).listTicket(tokenId, ethers.parseEther("3"));
+            const listing = await marketplace.resaleListings(tokenId);
+            expect(listing.seller).to.equal(buyer1.address);
+            expect(listing.price).to.equal(cap);
         });
 
         it("reverts when event is not active", async function () {
