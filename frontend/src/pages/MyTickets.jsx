@@ -41,8 +41,8 @@ export default function MyTickets() {
               let isMine = owner === currentUser;
 
               if (!isMine && owner === marketplaceLower) {
-                const listing = await marketplace.resaleListings(i);
-                isMine = listing.seller.toLowerCase() === currentUser;
+                const seller = await marketplace.resaleListings(i);
+                isMine = seller.toLowerCase() === currentUser;
               }
 
               if (!isMine) continue;

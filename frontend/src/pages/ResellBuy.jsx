@@ -21,10 +21,10 @@ export default function ResellBuy() {
       const ticketing = await getContract();
       const marketplace = await getMarketplaceContract();
       const ticketRaw = await ticketing.tickets(ticketId);
-      const resaleListing = await marketplace.resaleListings(ticketId);
+      const seller = await marketplace.resaleListings(ticketId);
       const eventRaw = await ticketing.events(ticketRaw[0]);
 
-      if (resaleListing[0] === ethers.ZeroAddress) {
+      if (!seller || seller === ethers.ZeroAddress) {
         navigate("/marketplace", { replace: true });
         return;
       }
@@ -37,7 +37,7 @@ export default function ResellBuy() {
         eventId: ticketRaw[0],
         eventName: eventRaw[0],
         facePrice: ethers.formatEther(ticketRaw[1]),
-        seller: resaleListing[0],
+        seller: seller,
         currentPrice: ethers.formatEther(currentPrice),
         currentPriceWei: currentPrice,
         status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],

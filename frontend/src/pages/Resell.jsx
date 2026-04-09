@@ -29,8 +29,8 @@ export default function Resell() {
       }
 
       const marketplace = await getMarketplaceContract();
-      const listing = await marketplace.resaleListings(ticketId);
-      if (listing.seller && listing.seller.toLowerCase() === currentUser.toLowerCase()) {
+      const seller = await marketplace.resaleListings(ticketId);
+      if (seller && seller !== ethers.ZeroAddress && seller.toLowerCase() === currentUser.toLowerCase()) {
         navigate("/my-tickets", { replace: true });
         return false;
       }

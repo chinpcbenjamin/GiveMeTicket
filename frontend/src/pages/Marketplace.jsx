@@ -39,9 +39,9 @@ export default function Marketplace() {
       for (let i = 0; i < count; i++) {
         try {
           const tokenId = await marketplace.getActiveListingAt(i);
-          const listing = await marketplace.resaleListings(tokenId);
+          const seller = await marketplace.resaleListings(tokenId);
 
-          if (listing.seller.toLowerCase() === currentUser) continue;
+          if (seller.toLowerCase() === currentUser) continue;
 
           const ticketRaw = await ticketing.tickets(tokenId);
           const eventRaw = await ticketing.events(ticketRaw[0]);
@@ -50,7 +50,7 @@ export default function Marketplace() {
           active.push({
             tokenId: Number(tokenId),
             eventName: eventRaw[0],
-            seller: listing.seller,
+            seller: seller,
             currentPrice: ethers.formatEther(currentPrice),
           });
         } catch (err) {
