@@ -37,6 +37,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     address public marketplace;
     mapping(address => uint256) public pendingRefunds;
+    uint256 public totalPendingRefunds;
 
     event EventCreated(uint256 indexed eventId, string name, uint256 facePrice);
     event TicketMinted(uint256 indexed tokenId, uint256 indexed eventId, address buyer);
@@ -123,10 +124,11 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     // Withdraws the full contract ETH balance to the owner. Only owner.
     function withdraw() external onlyOwner nonReentrant {
         uint256 balance = address(this).balance;
-        require(balance > 0, "No funds to withdraw");
-        (bool success, ) = owner().call{value: balance}("");
+        uint256 available = balance - totalPendingRefunds;
+        require(available > 0, "No withdrawable funds");
+        (bool success, ) = owner().call{value: available}("");
         require(success, "ETH transfer failed");
-        emit Withdrawn(owner(), balance);
+        emit Withdrawn(owner(), available);
     }
 
     function buyTicket(uint256 eventId)
@@ -165,6 +167,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         tickets[tokenId].status = TicketStatus.Cancelled;
 
         pendingRefunds[msg.sender] += refundAmount;
+        totalPendingRefunds += refundAmount;
         emit RefundCredited(tokenId, msg.sender, refundAmount);
     }
 
@@ -172,6 +175,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         uint256 amount = pendingRefunds[msg.sender];
         require(amount > 0, "No refund available");
         pendingRefunds[msg.sender] = 0;
+        totalPendingRefunds -= amount;
         (bool ok, ) = msg.sender.call{value: amount}("");
         require(ok, "Refund transfer failed");
         emit RefundClaimed(msg.sender, amount);

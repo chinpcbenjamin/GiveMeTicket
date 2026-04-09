@@ -11,6 +11,7 @@ export default function Admin() {
 
     const { account, connectWallet } = useAccount();
     const [contractBalance, setContractBalance] = useState(null);
+    const [reservedRefunds, setReservedRefunds] = useState(null);
     const [ownerAddressState, setOwnerAddressState] = useState(null);
     const [ownerWalletBalance, setOwnerWalletBalance] = useState(null);
     const [events, setEvents] = useState([]);
@@ -40,6 +41,9 @@ export default function Admin() {
             const addr = await getTicketingPlatformAddress();
             const balance = await provider.getBalance(addr);
             setContractBalance(ethers.formatEther(balance));
+            const contract = await getContract();
+            const reserved = await contract.totalPendingRefunds();
+            setReservedRefunds(ethers.formatEther(reserved));
         } catch (err) {
             console.error("Failed to fetch balance:", err);
         }
@@ -234,6 +238,9 @@ export default function Admin() {
                     <div className="w-full bg-slate-800/60 backdrop-blur-sm border border-emerald-700/30 rounded-2xl px-6 py-4 text-center">
                         <p className="text-xs uppercase tracking-widest text-emerald-500 mb-1">Contract Balance</p>
                         <p className="text-2xl text-emerald-400 font-bold">{contractBalance} <span className="text-sm text-emerald-600">ETH</span></p>
+                        {reservedRefunds !== null && Number(reservedRefunds) > 0 && (
+                            <p className="text-sm text-rose-400 mt-1">{reservedRefunds} ETH reserved for refunds</p>
+                        )}
                     </div>
                 )}
 
