@@ -33,7 +33,6 @@ export default function MyTickets() {
 
       const nextTokenId = Number(await contract.nextTokenId());
       const myTicketsList = [];
-      const usedIds = JSON.parse(localStorage.getItem("simUsedTickets") || "[]");
 
       for (let i = 0; i < nextTokenId; i++) {
             try {
@@ -58,9 +57,6 @@ export default function MyTickets() {
                 status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
                 eventStatus: ["Active", "Ended", "Cancelled"][Number(eventRaw[6])],
               };
-              if (usedIds.includes(i)) {
-                ticket.status = "Used";
-              }
               myTicketsList.push(ticket);
             } catch (err) {
               console.warn(`Skipping token ${i} due to error:`, err);
@@ -156,9 +152,6 @@ export default function MyTickets() {
         // finalize simulated use
         const idNum = ticketToUse?.ticketId;
         if (typeof idNum === "number") {
-          const usedIds = JSON.parse(localStorage.getItem("simUsedTickets") || "[]");
-          if (!usedIds.includes(idNum)) usedIds.push(idNum);
-          localStorage.setItem("simUsedTickets", JSON.stringify(usedIds));
           setMyTickets((prev) => prev.map(t => t.ticketId === idNum ? {...t, status: "Used"} : t));
         }
         setShowQRModal(false);
@@ -327,7 +320,7 @@ export default function MyTickets() {
                   Cancel
                 </button>
               </div>
-              <p className="text-xs text-slate-500 mt-3">Note: This action is frontend-only and simulates an admin scanning a QR code.</p>
+              <p className="text-xs text-slate-500 mt-3">Note: This is a frontend-only simulation of an admin scanning a QR code. The "Used" status will not persist if you navigate away or refresh the page.</p>
             </div>
           </div>
         )}
