@@ -69,6 +69,9 @@ contract Marketplace is ReentrancyGuard {
         delete resaleListings[tokenId];
         _activeListings.remove(tokenId);
 
+        pendingWithdrawals[seller] += sellerProceeds;
+        emit ProceedsCredited(seller, sellerProceeds);
+
         ticketing.setTicketToValid(tokenId);
         ticketing.transferFrom(address(this), msg.sender, tokenId);
         require(ticketing.ownerOf(tokenId) == msg.sender, "NFT transfer to buyer failed");
@@ -77,9 +80,6 @@ contract Marketplace is ReentrancyGuard {
             (bool commissionOk, ) = address(ticketing).call{value: commission}("");
             require(commissionOk, "Commission transfer failed");
         }
-
-        pendingWithdrawals[seller] += sellerProceeds;
-        emit ProceedsCredited(seller, sellerProceeds);
 
         uint256 refund = msg.value - price;
         if (refund > 0) {
