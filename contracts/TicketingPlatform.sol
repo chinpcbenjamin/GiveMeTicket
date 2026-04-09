@@ -91,8 +91,10 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     // Cancels an active event; freezes all ticket transfers. Only owner.
     function cancelEvent(uint256 eventId) external onlyOwner {
-        require(events[eventId].status == EventStatus.Active, "Event is not active");
-        events[eventId].status = EventStatus.Cancelled;
+        Event storage evt = events[eventId];
+        require(evt.status == EventStatus.Active, "Event is not active");
+        evt.status = EventStatus.Cancelled;
+        totalPendingRefunds += evt.facePrice * evt.ticketsSold;
         emit EventCancelled(eventId);
     }
 
@@ -167,7 +169,6 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         tickets[tokenId].status = TicketStatus.Cancelled;
 
         pendingRefunds[msg.sender] += refundAmount;
-        totalPendingRefunds += refundAmount;
         emit RefundCredited(tokenId, msg.sender, refundAmount);
     }
 
