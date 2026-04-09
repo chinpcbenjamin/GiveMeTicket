@@ -430,8 +430,12 @@ describe("Marketplace", function () {
             const ticketingAddr = await ticketing.getAddress();
             const balanceBefore = await ethers.provider.getBalance(ticketingAddr);
 
+            await marketplace.connect(buyer2).buyResaleTicket(tokenId, { value: ethers.parseEther("1") });
+
+            expect(await marketplace.pendingWithdrawals(buyer1.address)).to.equal(ethers.parseEther("0.95"));
+
             await expect(
-                marketplace.connect(buyer2).buyResaleTicket(tokenId, { value: ethers.parseEther("1") })
+                marketplace.connect(buyer1).claimProceeds()
             ).to.changeEtherBalance(buyer1, ethers.parseEther("0.95"));
 
             const commissionReceived = (await ethers.provider.getBalance(ticketingAddr)) - balanceBefore;

@@ -44,6 +44,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     event TicketUsed(uint256 indexed tokenId);
     event MarketplaceSet(address indexed marketplace);
     event TicketStatusChanged(uint256 indexed tokenId, TicketStatus status);
+    event Withdrawn(address indexed recipient, uint256 amount);
 
     modifier onlyMarketplace() {
         require(msg.sender == marketplace, "Caller is not the marketplace");
@@ -127,6 +128,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         require(balance > 0, "No funds to withdraw");
         (bool success, ) = owner().call{value: balance}("");
         require(success, "ETH transfer failed");
+        emit Withdrawn(owner(), balance);
     }
 
     // =========================================================================

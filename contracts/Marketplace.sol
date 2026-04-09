@@ -20,10 +20,13 @@ contract Marketplace is ReentrancyGuard {
 
     mapping(uint256 => ResaleListing) public resaleListings;
     EnumerableSet.UintSet private _activeListings;
+    mapping(address => uint256) public pendingWithdrawals;
 
     event TicketListed(uint256 indexed tokenId, address indexed seller, uint256 price);
     event ResaleTicketSold(uint256 indexed tokenId, address indexed buyer, uint256 price, uint256 commission, uint256 sellerProceeds);
     event ListingCancelled(uint256 indexed tokenId, address indexed seller);
+    event ProceedsCredited(address indexed seller, uint256 amount);
+    event ProceedsClaimed(address indexed seller, uint256 amount);
 
     constructor(address payable _ticketing) {
         require(_ticketing != address(0), "Invalid ticketing address");
@@ -86,10 +89,22 @@ contract Marketplace is ReentrancyGuard {
             require(commissionOk, "Commission transfer failed");
         }
 
-        (bool sellerOk, ) = seller.call{value: sellerProceeds}("");
-        require(sellerOk, "Seller transfer failed");
+        pendingWithdrawals[seller] += sellerProceeds;
+        emit ProceedsCredited(seller, sellerProceeds);
 
         emit ResaleTicketSold(tokenId, msg.sender, price, commission, sellerProceeds);
+    }
+
+    function claimProceeds() external nonReentrant {
+        uint256 amount = pendingWithdrawals[msg.sender];
+        require(amount > 0, "No proceeds to claim");
+
+        pendingWithdrawals[msg.sender] = 0;
+
+        (bool ok, ) = msg.sender.call{value: amount}("");
+        require(ok, "Proceeds transfer failed");
+
+        emit ProceedsClaimed(msg.sender, amount);
     }
 
     // Cancels a listing and returns the ticket from escrow to the seller.
