@@ -37,7 +37,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     address public marketplace;
     mapping(address => uint256) public pendingRefunds;
-    uint256 public totalPendingRefunds;
+    uint256 public totalReservedFunds;
 
     event EventCreated(uint256 indexed eventId, string name, uint256 facePrice);
     event TicketMinted(uint256 indexed tokenId, uint256 indexed eventId, address buyer);
@@ -94,14 +94,15 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         Event storage evt = events[eventId];
         require(evt.status == EventStatus.Active, "Event is not active");
         evt.status = EventStatus.Cancelled;
-        totalPendingRefunds += evt.facePrice * evt.ticketsSold;
         emit EventCancelled(eventId);
     }
 
     // Marks an active event as Ended; freezes all ticket transfers. Only owner.
     function markEventEnded(uint256 eventId) external onlyOwner {
-        require(events[eventId].status == EventStatus.Active, "Event is not active");
-        events[eventId].status = EventStatus.Ended;
+        Event storage evt = events[eventId];
+        require(evt.status == EventStatus.Active, "Event is not active");
+        evt.status = EventStatus.Ended;
+        totalReservedFunds -= evt.facePrice * evt.ticketsSold;
         emit EventEnded(eventId);
     }
 
@@ -126,7 +127,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     // Withdraws the full contract ETH balance to the owner. Only owner.
     function withdraw() external onlyOwner nonReentrant {
         uint256 balance = address(this).balance;
-        uint256 available = balance - totalPendingRefunds;
+        uint256 available = balance - totalReservedFunds;
         require(available > 0, "No withdrawable funds");
         (bool success, ) = owner().call{value: available}("");
         require(success, "ETH transfer failed");
@@ -155,6 +156,8 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
             status:    TicketStatus.Valid
         });
 
+        totalReservedFunds += evt.facePrice;
+
         _safeMint(msg.sender, tokenId);
         emit TicketMinted(tokenId, eventId, msg.sender);
     }
@@ -176,7 +179,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         uint256 amount = pendingRefunds[msg.sender];
         require(amount > 0, "No refund available");
         pendingRefunds[msg.sender] = 0;
-        totalPendingRefunds -= amount;
+        totalReservedFunds -= amount;
         (bool ok, ) = msg.sender.call{value: amount}("");
         require(ok, "Refund transfer failed");
         emit RefundClaimed(msg.sender, amount);
