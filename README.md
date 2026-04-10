@@ -1,5 +1,18 @@
 # GiveMeTicket
 
+## Overview
+
+GiveMeTicket is a decentralised event ticketing platform built on Ethereum. Tickets are minted as ERC-721 NFTs, ensuring verifiable ownership and preventing counterfeits. Two smart contracts handle the system:
+
+- **TicketingPlatform** — event creation, primary ticket sales, and ticket lifecycle management
+- **Marketplace** — secondary market resale with a quadratic-decay price cap and automatic organizer commission
+
+Built with Solidity, Hardhat, and a React/Vite frontend. Requires MetaMask to interact.
+
+### Prerequisites
+- Node.js v18+
+- MetaMask browser extension
+
 ## Quick Start (Clean Slate)
 
 The fastest way to get a fully clean environment — ideal for testing and live demos.
