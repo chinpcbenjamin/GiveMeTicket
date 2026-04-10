@@ -12,14 +12,13 @@ contract Marketplace is ReentrancyGuard {
 
     struct ResaleListing {
         address seller;
-        uint256 price;
     }
 
     mapping(uint256 => ResaleListing) public resaleListings;
     EnumerableSet.UintSet private _activeListings;
     mapping(address => uint256) public pendingWithdrawals;
 
-    event TicketListed(uint256 indexed tokenId, address indexed seller, uint256 price);
+    event TicketListed(uint256 indexed tokenId, address indexed seller);
     event ResaleTicketSold(uint256 indexed tokenId, address indexed buyer, uint256 price, uint256 commission, uint256 sellerProceeds);
     event ListingCancelled(uint256 indexed tokenId, address indexed seller);
     event ProceedsCredited(address indexed seller, uint256 amount);
@@ -30,9 +29,8 @@ contract Marketplace is ReentrancyGuard {
         ticketing = TicketingPlatform(_ticketing);
     }
 
-    function listTicket(uint256 tokenId, uint256 price) external nonReentrant {
+    function listTicket(uint256 tokenId) external nonReentrant {
         require(ticketing.ownerOf(tokenId) == msg.sender, "Not ticket owner");
-        require(price > 0,                                "Price must be > 0");
 
         (uint256 eventId, , TicketingPlatform.TicketStatus ticketStatus) = ticketing.tickets(tokenId);
         require(ticketStatus == TicketingPlatform.TicketStatus.Valid, "Ticket not Valid");
@@ -40,27 +38,26 @@ contract Marketplace is ReentrancyGuard {
         (, , , , , , TicketingPlatform.EventStatus eventStatus, , ) = ticketing.events(eventId);
         require(eventStatus == TicketingPlatform.EventStatus.Active,  "Event not active");
 
-        uint256 cap = ticketing.getResaleCap(tokenId);
-        uint256 listingPrice = price > cap ? cap : price;
-
-        resaleListings[tokenId] = ResaleListing({ seller: msg.sender, price: listingPrice });
+        resaleListings[tokenId] = ResaleListing({ seller: msg.sender });
         _activeListings.add(tokenId);
 
         ticketing.transferFrom(msg.sender, address(this), tokenId);
         require(ticketing.ownerOf(tokenId) == address(this), "Escrow transfer failed");
         ticketing.setTicketToResale(tokenId);
 
-        emit TicketListed(tokenId, msg.sender, listingPrice);
+        emit TicketListed(tokenId, msg.sender);
     }
 
     function buyResaleTicket(uint256 tokenId) external payable nonReentrant {
+        require(msg.sender != ticketing.owner(), "Organizer cannot buy resale tickets");
+
         ResaleListing memory listing = resaleListings[tokenId];
         require(listing.seller != address(0), "No active listing");
-        require(listing.price <= ticketing.getResaleCap(tokenId), "Listed price exceeds current resale cap");
-        require(msg.value == listing.price,   "Incorrect payment amount");
+
+        uint256 price = ticketing.getResaleCap(tokenId);
+        require(msg.value == price, "Payment must match current resale price");
 
         address seller = listing.seller;
-        uint256 price  = listing.price;
 
         (uint256 eventId, , ) = ticketing.tickets(tokenId);
         (, , , , , , , uint256 commissionBps, ) = ticketing.events(eventId);
@@ -72,6 +69,9 @@ contract Marketplace is ReentrancyGuard {
         delete resaleListings[tokenId];
         _activeListings.remove(tokenId);
 
+        pendingWithdrawals[seller] += sellerProceeds;
+        emit ProceedsCredited(seller, sellerProceeds);
+
         ticketing.setTicketToValid(tokenId);
         ticketing.transferFrom(address(this), msg.sender, tokenId);
         require(ticketing.ownerOf(tokenId) == msg.sender, "NFT transfer to buyer failed");
@@ -80,9 +80,6 @@ contract Marketplace is ReentrancyGuard {
             (bool commissionOk, ) = address(ticketing).call{value: commission}("");
             require(commissionOk, "Commission transfer failed");
         }
-
-        pendingWithdrawals[seller] += sellerProceeds;
-        emit ProceedsCredited(seller, sellerProceeds);
 
         emit ResaleTicketSold(tokenId, msg.sender, price, commission, sellerProceeds);
     }

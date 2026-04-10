@@ -56,10 +56,10 @@ export default function Events() {
             <div className="max-w-6xl mx-auto">
                 <div className="mb-4">
                     <button
-                        onClick={() => navigate(-1)}
+                        onClick={() => navigate("/")}
                         className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
                     >
-                        ← Back
+                        ← Home
                     </button>
                 </div>
 

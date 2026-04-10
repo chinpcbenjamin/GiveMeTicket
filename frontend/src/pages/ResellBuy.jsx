@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
 import { getContract, getMarketplaceContract } from "../contract/useContract";
+import { useAccount } from "../contract/AccountContext.jsx";
 
 export default function ResellBuy() {
   const navigate = useNavigate();
+  const { account } = useAccount();
+  const [ownerAddress, setOwnerAddress] = useState(null);
 
   const { ticketId } = useParams();
   useEffect(() => {
@@ -18,27 +21,27 @@ export default function ResellBuy() {
       const ticketing = await getContract();
       const marketplace = await getMarketplaceContract();
       const ticketRaw = await ticketing.tickets(ticketId);
-      const resaleListing = await marketplace.resaleListings(ticketId);
+      const seller = await marketplace.resaleListings(ticketId);
       const eventRaw = await ticketing.events(ticketRaw[0]);
 
-      if (resaleListing[0] === ethers.ZeroAddress) {
+      if (!seller || seller === ethers.ZeroAddress) {
         navigate("/marketplace", { replace: true });
         return;
       }
 
-      const cap = await ticketing.getResaleCap(ticketId);
+      const currentPrice = await ticketing.getResaleCap(ticketId);
+      setOwnerAddress((await ticketing.owner()).toLowerCase());
 
       const t = {
         ticketId: ticketId,
         eventId: ticketRaw[0],
         eventName: eventRaw[0],
         facePrice: ethers.formatEther(ticketRaw[1]),
-        seller: resaleListing[0],
-        resalePrice: ethers.formatEther(resaleListing[1]),
-        currentResaleCap: ethers.formatEther(cap),
+        seller: seller,
+        currentPrice: ethers.formatEther(currentPrice),
+        currentPriceWei: currentPrice,
         status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
       };
-      console.log("Ticket data:", t);
       setTicket(t);
     } catch (err) {
       console.error("Failed to fetch ticket:", err);
@@ -48,18 +51,14 @@ export default function ResellBuy() {
   async function buyResaleTicket() {
     try {
       const ticketing = await getContract();
-      const currentCap = await ticketing.getResaleCap(ticketId);
-      if (ethers.parseEther(ticket.resalePrice) > currentCap) {
-        alert("This listing's price now exceeds the current resale cap. The seller must cancel and relist at a lower price.");
-        return false;
-      }
+      const freshPrice = await ticketing.getResaleCap(ticketId);
 
       const marketplace = await getMarketplaceContract();
       const tx = await marketplace.buyResaleTicket(ticketId, {
-        value: ethers.parseEther(ticket.resalePrice),
+        value: freshPrice,
       });
       await tx.wait();
-      return true;
+      return ethers.formatEther(freshPrice);
     } catch (error) {
       console.error(error);
       return false;
@@ -68,9 +67,9 @@ export default function ResellBuy() {
 
   const handleResellBuy = async () => {
     try {
-      const ok = await buyResaleTicket();
-      if (ok) {
-        alert("Resale ticket purchased successfully!");
+      const pricePaid = await buyResaleTicket();
+      if (pricePaid) {
+        alert(`Resale ticket purchased successfully!\nPrice paid: ${pricePaid} ETH`);
         navigate("/my-tickets", { replace: true });
       } else {
         alert("Failed to buy ticket");
@@ -108,14 +107,13 @@ export default function ResellBuy() {
                   <p className="text-lg font-semibold text-slate-400">{ticket.facePrice} <span className="text-sm">ETH</span></p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Resale Price</p>
-                  <p className="text-2xl font-bold text-white">{ticket.resalePrice} <span className="text-sm text-slate-400">ETH</span></p>
+                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Current Price</p>
+                  <p className="text-2xl font-bold text-white">{ticket.currentPrice} <span className="text-sm text-slate-400">ETH</span></p>
                 </div>
               </div>
 
-              <div>
-                <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Price Cap</p>
-                <p className="text-lg font-semibold text-amber-400">{ticket.currentResaleCap} <span className="text-sm text-amber-600">ETH</span></p>
+              <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/30">
+                <p className="text-xs text-slate-400">Price is set dynamically by the platform and decreases as the event approaches. The exact amount charged is determined at the moment of purchase.</p>
               </div>
 
               <div>
@@ -126,9 +124,10 @@ export default function ResellBuy() {
 
             <button
               onClick={handleResellBuy}
-              className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/40 transition-all duration-200 cursor-pointer"
+              disabled={Boolean(ownerAddress && account && ownerAddress === account.toLowerCase())}
+              className={`w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/40 transition-all duration-200 ${ownerAddress && account && ownerAddress === account.toLowerCase() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              Buy Now &mdash; {ticket.resalePrice} ETH
+              {ownerAddress && account && ownerAddress === account.toLowerCase() ? 'Organizers cannot buy' : `Buy Now \u2014 ~${ticket.currentPrice} ETH`}
             </button>
 
             <button

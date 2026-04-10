@@ -37,6 +37,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     address public marketplace;
     mapping(address => uint256) public pendingRefunds;
+    uint256 public totalReservedFunds;
 
     event EventCreated(uint256 indexed eventId, string name, uint256 facePrice);
     event TicketMinted(uint256 indexed tokenId, uint256 indexed eventId, address buyer);
@@ -68,9 +69,9 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         require(date > block.timestamp, "Event date must be in the future");
         require(totalSupply > 0,        "Total supply must be > 0");
         require(facePrice > 0,          "Face price must be > 0");
-        require(resaleCapBps >= 10_000, "Resale cap must be >= 100% (10000 bps)");
-        require(resaleCommissionBps >= 0, "Resale commission must be >= 0");
-        require(resaleCommissionBps <= 10_000, "Resale commission must be <= 100% (10000 bps)");
+        require(resaleCommissionBps < 10_000, "Resale commission must be < 100%");
+        uint256 breakeven = (10_000 * 10_000 + (10_000 - resaleCommissionBps) - 1) / (10_000 - resaleCommissionBps);
+        require(resaleCapBps >= breakeven, "Resale cap must ensure seller breaks even after commission");
 
         eventId = nextEventId++;
         events[eventId] = Event({
@@ -90,15 +91,18 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     // Cancels an active event; freezes all ticket transfers. Only owner.
     function cancelEvent(uint256 eventId) external onlyOwner {
-        require(events[eventId].status == EventStatus.Active, "Event is not active");
-        events[eventId].status = EventStatus.Cancelled;
+        Event storage evt = events[eventId];
+        require(evt.status == EventStatus.Active, "Event is not active");
+        evt.status = EventStatus.Cancelled;
         emit EventCancelled(eventId);
     }
 
     // Marks an active event as Ended; freezes all ticket transfers. Only owner.
     function markEventEnded(uint256 eventId) external onlyOwner {
-        require(events[eventId].status == EventStatus.Active, "Event is not active");
-        events[eventId].status = EventStatus.Ended;
+        Event storage evt = events[eventId];
+        require(evt.status == EventStatus.Active, "Event is not active");
+        evt.status = EventStatus.Ended;
+        totalReservedFunds -= evt.facePrice * evt.ticketsSold;
         emit EventEnded(eventId);
     }
 
@@ -123,10 +127,11 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     // Withdraws the full contract ETH balance to the owner. Only owner.
     function withdraw() external onlyOwner nonReentrant {
         uint256 balance = address(this).balance;
-        require(balance > 0, "No funds to withdraw");
-        (bool success, ) = owner().call{value: balance}("");
+        uint256 available = balance - totalReservedFunds;
+        require(available > 0, "No withdrawable funds");
+        (bool success, ) = owner().call{value: available}("");
         require(success, "ETH transfer failed");
-        emit Withdrawn(owner(), balance);
+        emit Withdrawn(owner(), available);
     }
 
     function buyTicket(uint256 eventId)
@@ -151,6 +156,8 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
             status:    TicketStatus.Valid
         });
 
+        totalReservedFunds += evt.facePrice;
+
         _safeMint(msg.sender, tokenId);
         emit TicketMinted(tokenId, eventId, msg.sender);
     }
@@ -172,6 +179,7 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         uint256 amount = pendingRefunds[msg.sender];
         require(amount > 0, "No refund available");
         pendingRefunds[msg.sender] = 0;
+        totalReservedFunds -= amount;
         (bool ok, ) = msg.sender.call{value: amount}("");
         require(ok, "Refund transfer failed");
         emit RefundClaimed(msg.sender, amount);
@@ -186,8 +194,9 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
             ? 0
             : evt.date - block.timestamp;
 
-        uint256 markup = evt.resaleCapBps - 10_000;
-        uint256 currentCapBps = 10_000 + markup * timeLeft * timeLeft / (timeTotal * timeTotal);
+        uint256 floorBps = (10_000 * 10_000 + (10_000 - evt.resaleCommissionBps) - 1) / (10_000 - evt.resaleCommissionBps);
+        uint256 markup   = evt.resaleCapBps - floorBps;
+        uint256 currentCapBps = floorBps + markup * timeLeft * timeLeft / (timeTotal * timeTotal);
 
         return ticket.facePrice * currentCapBps / 10_000;
     }

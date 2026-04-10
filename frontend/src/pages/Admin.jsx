@@ -11,6 +11,7 @@ export default function Admin() {
 
     const { account, connectWallet } = useAccount();
     const [contractBalance, setContractBalance] = useState(null);
+    const [reservedFunds, setReservedFunds] = useState(null);
     const [ownerAddressState, setOwnerAddressState] = useState(null);
     const [ownerWalletBalance, setOwnerWalletBalance] = useState(null);
     const [events, setEvents] = useState([]);
@@ -40,6 +41,9 @@ export default function Admin() {
             const addr = await getTicketingPlatformAddress();
             const balance = await provider.getBalance(addr);
             setContractBalance(ethers.formatEther(balance));
+            const contract = await getContract();
+            const reserved = await contract.totalReservedFunds();
+            setReservedFunds(ethers.formatEther(reserved));
         } catch (err) {
             console.error("Failed to fetch balance:", err);
         }
@@ -129,6 +133,7 @@ export default function Admin() {
             const tx = await contract.cancelEvent(eventId);
             await tx.wait();
             await fetchEvents();
+            await fetchBalance();
         } catch (err) {
             const reason = err?.reason || err?.data?.message || err?.message || String(err);
             alert(`Cancel failed: ${reason}`);
@@ -140,6 +145,13 @@ export default function Admin() {
         setGateMessage("");
         try {
             const contract = await getContract();
+            try {
+                await contract.ownerOf(Number(gateTicketId));
+            } catch {
+                setGateStatus("error");
+                setGateMessage("Ticket does not exist");
+                return;
+            }
             const ticketRaw = await contract.tickets(Number(gateTicketId));
             const statusLabel = ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])];
             const eventRaw = await contract.events(ticketRaw[0]);
@@ -194,10 +206,10 @@ export default function Admin() {
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col items-center px-4 py-16">
             <div className="w-full flex justify-start mb-4">
                 <button
-                    onClick={() => navigate(-1)}
+                    onClick={() => navigate("/")}
                     className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
                 >
-                    ← Back
+                    ← Home
                 </button>
             </div>
 
@@ -227,6 +239,7 @@ export default function Admin() {
                     <div className="w-full bg-slate-800/60 backdrop-blur-sm border border-emerald-700/30 rounded-2xl px-6 py-4 text-center">
                         <p className="text-xs uppercase tracking-widest text-emerald-500 mb-1">Contract Balance</p>
                         <p className="text-2xl text-emerald-400 font-bold">{contractBalance} <span className="text-sm text-emerald-600">ETH</span></p>
+                        <p className="text-sm text-slate-400 mt-1">{reservedFunds ?? "..."} ETH reserved</p>
                     </div>
                 )}
 
