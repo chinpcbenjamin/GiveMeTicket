@@ -1,4 +1,11 @@
 {
+  "scripts": {
+    "clean": "rm -rf cache artifacts frontend/public/contract/deployed-addresses.json frontend/src/contract/deployed-addresses.json",
+    "compile": "npx hardhat compile",
+    "node": "npx hardhat node",
+    "deploy": "npx hardhat run scripts/deploy.js --network localhost",
+    "start": "bash scripts/clean-start.sh"
+  },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.6"
   },
