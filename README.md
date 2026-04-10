@@ -4,8 +4,8 @@
 
 GiveMeTicket is a decentralised event ticketing platform built on Ethereum. Tickets are minted as ERC-721 NFTs, ensuring verifiable ownership and preventing counterfeits. Two smart contracts handle the system:
 
-- **TicketingPlatform** — event creation, primary ticket sales, and ticket lifecycle management
-- **Marketplace** — secondary market resale with a quadratic-decay price cap and automatic organizer commission
+- **TicketingPlatform** - event creation, primary ticket sales, and ticket lifecycle management
+- **Marketplace** - secondary market resale with a quadratic-decay price cap and automatic organizer commission
 
 Built with Solidity, Hardhat, and a React/Vite frontend. Requires MetaMask to interact.
 
@@ -15,11 +15,11 @@ Built with Solidity, Hardhat, and a React/Vite frontend. Requires MetaMask to in
 
 ## Quick Start (Clean Slate)
 
-The fastest way to get a fully clean environment — ideal for testing and live demos.
+The fastest way to get a fully clean environment - ideal for testing and live demos.
 
 1. From root, `npm install` (first time only)
 2. `cd frontend && npm install && cd ..` (first time only)
-3. `npm start` — cleans all caches, compiles, starts node, and deploys contracts
+3. `npm start` - cleans all caches, compiles, starts node, and deploys contracts
 4. In a new terminal: `cd frontend && npm run dev`
 5. **Reset MetaMask** (see below)
 
@@ -30,7 +30,7 @@ The fastest way to get a fully clean environment — ideal for testing and live 
 2. `npx hardhat compile`
 
 ### Local Blockchain
-1. `npx hardhat node` — keep this terminal running
+1. `npx hardhat node` - keep this terminal running
 
 ### Deploy Contracts
 1. Open a new terminal from root
