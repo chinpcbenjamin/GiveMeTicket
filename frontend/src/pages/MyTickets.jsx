@@ -338,23 +338,13 @@ export default function MyTickets() {
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/60"></div>
             <div className="relative bg-slate-800/95 border border-slate-700/50 rounded-2xl p-6 w-full max-w-sm z-10 text-center">
-              <h3 className="text-lg font-bold text-white">Present this QR to Admin</h3>
-              <div className="mx-auto my-4 w-48 h-48 bg-white p-4 rounded-md inline-block">
-                <svg viewBox="0 0 120 120" className="w-full h-full">
-                  <rect x="0" y="0" width="120" height="120" fill="#ffffff" />
-                  <rect x="6" y="6" width="30" height="30" fill="#000" />
-                  <rect x="84" y="6" width="30" height="30" fill="#000" />
-                  <rect x="6" y="84" width="30" height="30" fill="#000" />
-                  {Array.from({ length: 20 }).map((_, idx) => {
-                    const x = 18 + (idx % 5) * 18;
-                    const y = 18 + Math.floor(idx / 5) * 18;
-                    const fill = ((ticketToUse?.ticketId ?? 0) + idx) % 3 === 0 ? '#000' : 'none';
-                    return <rect key={idx} x={x} y={y} width="12" height="12" fill={fill} />;
-                  })}
-                </svg>
+              <h3 className="text-lg font-bold text-white">Show this Ticket ID to Admin</h3>
+              <div className="mx-auto my-4 w-full bg-slate-900/70 border border-slate-700/60 rounded-xl p-6">
+                <p className="text-xs uppercase tracking-widest text-slate-500">Ticket ID</p>
+                <p className="text-4xl font-extrabold text-white font-mono mt-2">#{ticketToUse?.ticketId}</p>
+                <p className="text-sm text-slate-400 mt-4">QR codes are disabled. Provide this ID for manual validation.</p>
               </div>
-              <p className="text-slate-300">Ticket #{ticketToUse?.ticketId}</p>
-              <p className="text-sm text-slate-400 mt-2">Waiting for admin scan... <span className="font-mono">{countdown}s</span></p>
+              <p className="text-sm text-slate-400 mt-2">Waiting for admin confirmation... <span className="font-mono">{countdown}s</span></p>
               <p className="text-xs text-slate-500 mt-3">Simulation will complete automatically when the timer reaches zero.</p>
             </div>
           </div>
