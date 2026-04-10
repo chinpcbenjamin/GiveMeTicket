@@ -10,21 +10,28 @@ import {
   getMarketplaceContract,
   connectWallet,
 } from "../contract/useContract";
+import { useAccount } from "../contract/AccountContext.jsx";
 
 export default function Marketplace() {
   const navigate = useNavigate();
+  const { account } = useAccount();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOrganizer, setIsOrganizer] = useState(false);
 
   useEffect(() => {
     fetchListings();
-  }, []);
+  }, [account]);
 
   async function fetchListings() {
     try {
       const marketplace = await getMarketplaceContract();
       const ticketing = await getContract();
-      const currentUser = (await connectWallet()).toLowerCase();
+      const addr = await connectWallet();
+      if (!addr) { setLoading(false); return; }
+      const currentUser = addr.toLowerCase();
+      const owner = (await ticketing.owner()).toLowerCase();
+      setIsOrganizer(currentUser === owner);
 
       const count = await marketplace.getActiveListingCount();
       const active = [];
@@ -32,20 +39,19 @@ export default function Marketplace() {
       for (let i = 0; i < count; i++) {
         try {
           const tokenId = await marketplace.getActiveListingAt(i);
-          const listing = await marketplace.resaleListings(tokenId);
+          const seller = await marketplace.resaleListings(tokenId);
 
-          if (listing.seller.toLowerCase() === currentUser) continue;
+          if (seller.toLowerCase() === currentUser) continue;
 
           const ticketRaw = await ticketing.tickets(tokenId);
           const eventRaw = await ticketing.events(ticketRaw[0]);
-          const cap = await ticketing.getResaleCap(tokenId);
+          const currentPrice = await ticketing.getResaleCap(tokenId);
 
           active.push({
             tokenId: Number(tokenId),
             eventName: eventRaw[0],
-            seller: listing.seller,
-            price: ethers.formatEther(listing.price),
-            resaleCap: ethers.formatEther(cap),
+            seller: seller,
+            currentPrice: ethers.formatEther(currentPrice),
           });
         } catch (err) {
           console.warn("Skipping listing due to error:", err);
@@ -66,10 +72,10 @@ export default function Marketplace() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-4">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/")}
             className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
           >
-            ← Back
+            ← Home
           </button>
         </div>
 
@@ -106,10 +112,7 @@ export default function Marketplace() {
                       Seller
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                      Price
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                      Price Cap
+                      Current Price
                     </th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-widest">
                       Action
@@ -129,18 +132,19 @@ export default function Marketplace() {
                         {listing.seller.slice(0, 6)}...{listing.seller.slice(-4)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-white">
-                        {listing.price} <span className="text-slate-400 font-normal">ETH</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
-                        {listing.resaleCap} <span className="text-slate-500">ETH</span>
+                        {listing.currentPrice} <span className="text-slate-400 font-normal">ETH</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <button
-                          className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/30 transition-all duration-200 cursor-pointer text-sm"
-                          onClick={() => navigate(`/resell-buy/${listing.tokenId}`)}
-                        >
-                          Buy
-                        </button>
+                        {isOrganizer ? (
+                          <span className="text-slate-500 font-medium">Organizers cannot buy</span>
+                        ) : (
+                          <button
+                            className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-900/30 transition-all duration-200 cursor-pointer text-sm"
+                            onClick={() => navigate(`/resell-buy/${listing.tokenId}`)}
+                          >
+                            Buy
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

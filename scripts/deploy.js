@@ -32,9 +32,8 @@ async function main() {
   fs.writeFileSync(outPath, JSON.stringify(addresses, null, 2));
 
   const outPath2 = path.join(__dirname, "..", "frontend", "src", "contract", "deployed-addresses.json");
-  // ensure directory exists
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, JSON.stringify(addresses, null, 2));
+  fs.mkdirSync(path.dirname(outPath2), { recursive: true });
+  fs.writeFileSync(outPath2, JSON.stringify(addresses, null, 2));
 
   console.log("Deployer:", deployer.address);
   console.log("TicketingPlatform:", ticketingAddress);

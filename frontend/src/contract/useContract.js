@@ -82,16 +82,11 @@ export const useContract = () => {
     return error.message || String(error);
   };
 
-  const listTicketForResale = async (ticketId, priceEth) => {
+  const listTicketForResale = async (ticketId) => {
     try {
       if (ticketId === undefined || ticketId === null || ticketId === "") {
         throw new Error("Ticket ID is required");
       }
-      if (!priceEth || priceEth === "") {
-        throw new Error("Price is required");
-      }
-
-      const priceInWei = ethers.parseEther(String(priceEth).trim());
 
       const ticketing = await getContract();
       const marketplace = await getMarketplaceContract();
@@ -106,7 +101,7 @@ export const useContract = () => {
         await approveTx.wait();
       }
 
-      const listTx = await marketplace.listTicket(ticketId, priceInWei);
+      const listTx = await marketplace.listTicket(ticketId);
       await listTx.wait();
 
       return { success: true, txHash: listTx.hash };
@@ -152,9 +147,9 @@ export async function ensureCorrectNetwork() {
   return await ecn();
 }
 
-export async function listTicketForResale(ticketId, priceEth) {
+export async function listTicketForResale(ticketId) {
   const { listTicketForResale: list } = useContract();
-  return await list(ticketId, priceEth);
+  return await list(ticketId);
 }
 
 export async function getMarketplaceContract() {

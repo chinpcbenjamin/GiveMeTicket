@@ -36,6 +36,8 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     uint256 public nextTokenId;
 
     address public marketplace;
+    mapping(address => uint256) public pendingRefunds;
+    uint256 public totalReservedFunds;
 
     event EventCreated(uint256 indexed eventId, string name, uint256 facePrice);
     event TicketMinted(uint256 indexed tokenId, uint256 indexed eventId, address buyer);
@@ -44,6 +46,9 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     event TicketUsed(uint256 indexed tokenId);
     event MarketplaceSet(address indexed marketplace);
     event TicketStatusChanged(uint256 indexed tokenId, TicketStatus status);
+    event Withdrawn(address indexed recipient, uint256 amount);
+    event RefundCredited(uint256 indexed tokenId, address indexed buyer, uint256 amount);
+    event RefundClaimed(address indexed buyer, uint256 amount);
 
     modifier onlyMarketplace() {
         require(msg.sender == marketplace, "Caller is not the marketplace");
@@ -52,12 +57,6 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     constructor() ERC721("GiveMeTicket", "GMT") {}
 
-    // =========================================================================
-    // Organizer Functions
-    // =========================================================================
-
-    // Creates a new event. Only owner.
-    // Returns eventId - Auto-incremented event ID.
     function createEvent(
         string memory name,
         uint256 date,
@@ -66,12 +65,13 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         uint256 resaleCapBps,
         uint256 resaleCommissionBps
     ) external onlyOwner returns (uint256 eventId) {
+        require(bytes(name).length > 0,  "Event name cannot be empty");
         require(date > block.timestamp, "Event date must be in the future");
         require(totalSupply > 0,        "Total supply must be > 0");
         require(facePrice > 0,          "Face price must be > 0");
-        require(resaleCapBps >= 10_000, "Resale cap must be >= 100% (10000 bps)");
-        require(resaleCommissionBps >= 0, "Resale commission must be >= 0");
-        require(resaleCommissionBps <= 10_000, "Resale commission must be <= 100% (10000 bps)");
+        require(resaleCommissionBps < 10_000, "Resale commission must be < 100%");
+        uint256 breakeven = (10_000 * 10_000 + (10_000 - resaleCommissionBps) - 1) / (10_000 - resaleCommissionBps);
+        require(resaleCapBps >= breakeven, "Resale cap must ensure seller breaks even after commission");
 
         eventId = nextEventId++;
         events[eventId] = Event({
@@ -91,15 +91,18 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
     // Cancels an active event; freezes all ticket transfers. Only owner.
     function cancelEvent(uint256 eventId) external onlyOwner {
-        require(events[eventId].status == EventStatus.Active, "Event is not active");
-        events[eventId].status = EventStatus.Cancelled;
+        Event storage evt = events[eventId];
+        require(evt.status == EventStatus.Active, "Event is not active");
+        evt.status = EventStatus.Cancelled;
         emit EventCancelled(eventId);
     }
 
     // Marks an active event as Ended; freezes all ticket transfers. Only owner.
     function markEventEnded(uint256 eventId) external onlyOwner {
-        require(events[eventId].status == EventStatus.Active, "Event is not active");
-        events[eventId].status = EventStatus.Ended;
+        Event storage evt = events[eventId];
+        require(evt.status == EventStatus.Active, "Event is not active");
+        evt.status = EventStatus.Ended;
+        totalReservedFunds -= evt.facePrice * evt.ticketsSold;
         emit EventEnded(eventId);
     }
 
@@ -124,17 +127,13 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
     // Withdraws the full contract ETH balance to the owner. Only owner.
     function withdraw() external onlyOwner nonReentrant {
         uint256 balance = address(this).balance;
-        require(balance > 0, "No funds to withdraw");
-        (bool success, ) = owner().call{value: balance}("");
+        uint256 available = balance - totalReservedFunds;
+        require(available > 0, "No withdrawable funds");
+        (bool success, ) = owner().call{value: available}("");
         require(success, "ETH transfer failed");
+        emit Withdrawn(owner(), available);
     }
 
-    // =========================================================================
-    // Buyer Functions
-    // =========================================================================
-
-    // Buys one ticket for an event and mints it as an ERC-721 NFT. Public payable. CEI Implementation
-    // @return tokenId Auto-incremented token ID of the minted ticket.
     function buyTicket(uint256 eventId)
         external
         payable
@@ -142,7 +141,6 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         returns (uint256 tokenId)
     {
         Event storage evt = events[eventId];
-        // Prevent the contract owner (event organizer) from buying their own tickets
         require(msg.sender != owner(), "Organizer cannot buy tickets");
 
         require(evt.status == EventStatus.Active, "Event is not active");
@@ -158,13 +156,35 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
             status:    TicketStatus.Valid
         });
 
+        totalReservedFunds += evt.facePrice;
+
         _safeMint(msg.sender, tokenId);
         emit TicketMinted(tokenId, eventId, msg.sender);
     }
+    // Claims a refund for a ticket belonging to a cancelled event.
+    // Ticket must be Valid (not in escrow) — if it is listed on the marketplace
+    function claimRefund(uint256 tokenId) external nonReentrant {
+        require(ownerOf(tokenId) == msg.sender,                "Not the ticket owner");
+        require(tickets[tokenId].status == TicketStatus.Valid, "Ticket must be Valid");
+        require(events[tickets[tokenId].eventId].status == EventStatus.Cancelled, "Event is not cancelled");
 
-    // Returns the dynamic resale price cap in wei.
-    // Uses quadratic decay: cap starts at resaleCapBps at event creation and
-    // decays to 100% (face price) by the event date.
+        uint256 refundAmount = tickets[tokenId].facePrice;
+        tickets[tokenId].status = TicketStatus.Cancelled;
+
+        pendingRefunds[msg.sender] += refundAmount;
+        emit RefundCredited(tokenId, msg.sender, refundAmount);
+    }
+
+    function withdrawRefund() external nonReentrant {
+        uint256 amount = pendingRefunds[msg.sender];
+        require(amount > 0, "No refund available");
+        pendingRefunds[msg.sender] = 0;
+        totalReservedFunds -= amount;
+        (bool ok, ) = msg.sender.call{value: amount}("");
+        require(ok, "Refund transfer failed");
+        emit RefundClaimed(msg.sender, amount);
+    }
+
     function getResaleCap(uint256 tokenId) external view override returns (uint256) {
         Ticket storage ticket = tickets[tokenId];
         Event  storage evt    = events[ticket.eventId];
@@ -174,27 +194,22 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
             ? 0
             : evt.date - block.timestamp;
 
-        uint256 markup = evt.resaleCapBps - 10_000;
-        uint256 currentCapBps = 10_000 + markup * timeLeft * timeLeft / (timeTotal * timeTotal);
+        uint256 floorBps = (10_000 * 10_000 + (10_000 - evt.resaleCommissionBps) - 1) / (10_000 - evt.resaleCommissionBps);
+        uint256 markup   = evt.resaleCapBps - floorBps;
+        uint256 currentCapBps = floorBps + markup * timeLeft * timeLeft / (timeTotal * timeTotal);
 
         return ticket.facePrice * currentCapBps / 10_000;
     }
 
-    // Returns the face price paid at mint, in wei.
     function getTicketPrice(uint256 tokenId) external view override returns (uint256) {
         return tickets[tokenId].facePrice;
     }
 
-    // Returns true if ticket is Valid and its event is Active.
     function isTicketValid(uint256 tokenId) external view override returns (bool) {
         Ticket storage ticket = tickets[tokenId];
         return ticket.status == TicketStatus.Valid
             && events[ticket.eventId].status == EventStatus.Active;
     }
-
-    // =========================================================================
-    // Marketplace Hooks
-    // =========================================================================
 
     // Sets a ticket status to Resale when it enters marketplace escrow. Only marketplace.
     function setTicketToResale(uint256 tokenId) external onlyMarketplace {
@@ -203,19 +218,12 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
         emit TicketStatusChanged(tokenId, TicketStatus.Resale);
     }
 
-    // Sets a ticket status back to Valid when it leaves marketplace escrow. Only marketplace.
     function setTicketToValid(uint256 tokenId) external onlyMarketplace {
         require(tickets[tokenId].status == TicketStatus.Resale, "Ticket is not in Resale");
         tickets[tokenId].status = TicketStatus.Valid;
         emit TicketStatusChanged(tokenId, TicketStatus.Valid);
     }
 
-    // =========================================================================
-    // ERC-721 Transfer Override
-    // =========================================================================
-
-    // Blocks transfers (not mints, not marketplace escrow releases) when the event
-    // is not Active, the event date has passed, or the ticket is not Valid.
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -226,13 +234,15 @@ contract TicketingPlatform is ERC721Enumerable, ReentrancyGuard, Ownable, ITicke
 
         // Skip checks for mints (from == 0) and marketplace escrow releases (from == marketplace)
         if (from != address(0) && from != marketplace) {
-            uint256 tokenId = firstTokenId;
-            Ticket storage ticket = tickets[tokenId];
-            Event  storage evt    = events[ticket.eventId];
+            for (uint256 i = 0; i < batchSize; i++) {
+                uint256 tokenId = firstTokenId + i;
+                Ticket storage ticket = tickets[tokenId];
+                Event  storage evt    = events[ticket.eventId];
 
-            require(evt.status == EventStatus.Active,   "Transfer blocked: event is not Active");
-            require(block.timestamp < evt.date,          "Transfer blocked: event date has passed");
-            require(ticket.status == TicketStatus.Valid, "Transfer blocked: ticket is not Valid");
+                require(evt.status == EventStatus.Active,   "Transfer blocked: event is not Active");
+                require(block.timestamp < evt.date,          "Transfer blocked: event date has passed");
+                require(ticket.status == TicketStatus.Valid, "Transfer blocked: ticket is not Valid");
+            }
         }
     }
 }

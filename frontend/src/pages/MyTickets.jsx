@@ -8,27 +8,31 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getContract, getMarketplaceContract, connectWallet } from "../contract/useContract";
 import { getMarketplaceAddress } from "../contract/config";
+import { useAccount } from "../contract/AccountContext.jsx";
 import { ethers } from "ethers";
 
 export default function MyTickets() {
   const navigate = useNavigate();
+  const { account } = useAccount();
   const [myTickets, setMyTickets] = useState([]);
   const [showUseModal, setShowUseModal] = useState(false);
   const [ticketToUse, setTicketToUse] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [countdown, setCountdown] = useState(8);
-  const intervalRef = null;
+  const [pendingProceeds, setPendingProceeds] = useState(0n);
+  const [pendingRefundBal, setPendingRefundBal] = useState(0n);
 
   async function fetchTickets() {
       const contract = await getContract();
       const marketplace = await getMarketplaceContract();
-      const currentUser = (await connectWallet()).toLowerCase();
+      const addr = await connectWallet();
+      if (!addr) return;
+      const currentUser = addr.toLowerCase();
       const marketplaceAddr = await getMarketplaceAddress();
       const marketplaceLower = marketplaceAddr.toLowerCase();
 
       const nextTokenId = Number(await contract.nextTokenId());
       const myTicketsList = [];
-      const usedIds = JSON.parse(localStorage.getItem("simUsedTickets") || "[]");
 
       for (let i = 0; i < nextTokenId; i++) {
             try {
@@ -37,24 +41,29 @@ export default function MyTickets() {
               let isMine = owner === currentUser;
 
               if (!isMine && owner === marketplaceLower) {
-                const listing = await marketplace.resaleListings(i);
-                isMine = listing.seller.toLowerCase() === currentUser;
+                const seller = await marketplace.resaleListings(i);
+                isMine = seller.toLowerCase() === currentUser;
               }
 
               if (!isMine) continue;
 
               const ticketRaw = await contract.tickets(i);
               const eventRaw = await contract.events(ticketRaw[0]);
+              const rawStatus = ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])];
+              const eventStatus = ["Active", "Ended", "Cancelled"][Number(eventRaw[6])];
+              let displayStatus = rawStatus;
+              if (rawStatus === "Valid" && eventStatus === "Ended") displayStatus = "Event Ended";
+              if (rawStatus === "Valid" && eventStatus === "Cancelled") displayStatus = "Event Cancelled";
+
               const ticket = {
                 ticketId: i,
                 eventId: ticketRaw[0],
                 eventName: eventRaw[0],
                 facePrice: ethers.formatEther(ticketRaw[1]),
-                status: ["Valid", "Used", "Resale", "Cancelled"][Number(ticketRaw[2])],
+                rawStatus: rawStatus,
+                status: displayStatus,
+                eventStatus: eventStatus,
               };
-              if (usedIds.includes(i)) {
-                ticket.status = "Used";
-              }
               myTicketsList.push(ticket);
             } catch (err) {
               console.warn(`Skipping token ${i} due to error:`, err);
@@ -62,11 +71,53 @@ export default function MyTickets() {
             }
       }
       setMyTickets(myTicketsList);
+
+      const proceeds = await marketplace.pendingWithdrawals(currentUser);
+      setPendingProceeds(proceeds);
+
+      const refundBal = await contract.pendingRefunds(currentUser);
+      setPendingRefundBal(refundBal);
   }
 
   useEffect(() => {
     fetchTickets();
-  }, []);
+  }, [account]);
+
+  async function handleClaimProceeds() {
+    try {
+      const marketplace = await getMarketplaceContract();
+      const tx = await marketplace.claimProceeds();
+      await tx.wait();
+      await fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to claim proceeds");
+    }
+  }
+
+  async function handleClaimRefund(ticketId) {
+    try {
+      const contract = await getContract();
+      const tx = await contract.claimRefund(ticketId);
+      await tx.wait();
+      await fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to claim refund");
+    }
+  }
+
+  async function handleWithdrawRefund() {
+    try {
+      const contract = await getContract();
+      const tx = await contract.withdrawRefund();
+      await tx.wait();
+      await fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to withdraw refund");
+    }
+  }
 
   async function handleCancelResale(ticketId) {
     try {
@@ -108,9 +159,6 @@ export default function MyTickets() {
         // finalize simulated use
         const idNum = ticketToUse?.ticketId;
         if (typeof idNum === "number") {
-          const usedIds = JSON.parse(localStorage.getItem("simUsedTickets") || "[]");
-          if (!usedIds.includes(idNum)) usedIds.push(idNum);
-          localStorage.setItem("simUsedTickets", JSON.stringify(usedIds));
           setMyTickets((prev) => prev.map(t => t.ticketId === idNum ? {...t, status: "Used"} : t));
         }
         setShowQRModal(false);
@@ -126,6 +174,8 @@ export default function MyTickets() {
     Used: "bg-amber-500/20 text-amber-400 border-amber-500/30",
     Resale: "bg-blue-500/20 text-blue-400 border-blue-500/30",
     Cancelled: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    "Event Ended": "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    "Event Cancelled": "bg-rose-500/20 text-rose-400 border-rose-500/30",
   };
 
   return (
@@ -134,10 +184,10 @@ export default function MyTickets() {
         <div className="mb-10">
           <div className="mb-4">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/")}
               className="inline-flex items-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition"
             >
-              ← Back
+              ← Home
             </button>
           </div>
           <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Your Collection</p>
@@ -146,6 +196,36 @@ export default function MyTickets() {
           </h1>
           <p className="text-slate-400 mt-2">View and manage all tickets in your wallet</p>
         </div>
+
+        {pendingProceeds > 0n && (
+          <div className="mb-6 bg-amber-900/30 border border-amber-700/50 rounded-2xl px-6 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-amber-500 mb-0.5">Pending Resale Proceeds</p>
+              <p className="text-xl font-bold text-amber-300">{ethers.formatEther(pendingProceeds)} <span className="text-sm text-amber-500">ETH</span></p>
+            </div>
+            <button
+              onClick={handleClaimProceeds}
+              className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/30 transition-all duration-200 cursor-pointer text-sm"
+            >
+              Claim
+            </button>
+          </div>
+        )}
+
+        {pendingRefundBal > 0n && (
+          <div className="mb-6 bg-rose-900/30 border border-rose-700/50 rounded-2xl px-6 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-rose-400 mb-0.5">Pending Refunds</p>
+              <p className="text-xl font-bold text-rose-300">{ethers.formatEther(pendingRefundBal)} <span className="text-sm text-rose-500">ETH</span></p>
+            </div>
+            <button
+              onClick={handleWithdrawRefund}
+              className="px-5 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-900/30 transition-all duration-200 cursor-pointer text-sm"
+            >
+              Withdraw
+            </button>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
           {myTickets.map((ticket) => (
@@ -175,7 +255,7 @@ export default function MyTickets() {
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                  {ticket.status === "Valid" && (
+                  {ticket.rawStatus === "Valid" && ticket.eventStatus === "Active" && (
                     <>
                       <button
                         className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-900/30 transition-all duration-200 cursor-pointer text-sm"
@@ -191,7 +271,15 @@ export default function MyTickets() {
                       </button>
                     </>
                   )}
-                  {ticket.status === "Resale" && (
+                  {ticket.rawStatus === "Valid" && ticket.eventStatus === "Cancelled" && (
+                    <button
+                      onClick={() => handleClaimRefund(ticket.ticketId)}
+                      className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-900/30 transition-all duration-200 cursor-pointer text-sm"
+                    >
+                      Claim Refund
+                    </button>
+                  )}
+                  {ticket.rawStatus === "Resale" && (
                     <button
                       onClick={() => handleCancelResale(ticket.ticketId)}
                       className="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-900/30 transition-all duration-200 cursor-pointer text-sm"
@@ -241,7 +329,7 @@ export default function MyTickets() {
                   Cancel
                 </button>
               </div>
-              <p className="text-xs text-slate-500 mt-3">Note: This action is frontend-only and simulates an admin scanning a QR code.</p>
+              <p className="text-xs text-slate-500 mt-3">Note: This is a frontend-only simulation of an admin scanning a QR code. The "Used" status will not persist if you navigate away or refresh the page.</p>
             </div>
           </div>
         )}

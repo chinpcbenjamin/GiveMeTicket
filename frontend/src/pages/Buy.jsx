@@ -36,12 +36,12 @@ export default function Buy() {
       };
       if (evt.status !== "Active") {
         alert("This event is not active.");
-        navigate("/events");
+        navigate("/events", { replace: true });
         return;
       }
       if (evt.totalSupply - evt.ticketsSold <= 0) {
         alert("This event is sold out.");
-        navigate("/events");
+        navigate("/events", { replace: true });
         return;
       }
       setEvent(evt);
@@ -75,7 +75,7 @@ export default function Buy() {
     const ok = await buyTicket()
     if (ok) {
       alert("Ticket purchased successfully!");
-      navigate("/my-tickets")
+      navigate("/my-tickets", { replace: true })
     } else {
       alert("Failed to buy ticket")
     }
@@ -122,12 +122,6 @@ export default function Buy() {
               {ownerAddress && account && ownerAddress.toLowerCase() === account.toLowerCase() ? 'Organizers cannot buy' : 'Buy Now'}
             </button>
 
-            <button
-              onClick={() => navigate("/events")}
-              className="w-full py-3 rounded-xl font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 hover:text-white hover:bg-slate-700/40 transition-all duration-200 cursor-pointer"
-            >
-              Back to Events
-            </button>
           </div>
         </div>
       </div>
